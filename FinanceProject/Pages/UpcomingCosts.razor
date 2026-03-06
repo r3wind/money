@@ -1,0 +1,148 @@
+@page "/upcoming-costs"
+@inject FinanceStateService Finance
+
+<PageTitle>Upcoming Costs</PageTitle>
+
+<h1 class="page-title">?? Upcoming Costs</h1>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Upcoming Cost</button>
+
+@if (_showForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Upcoming Cost" : "Edit Upcoming Cost")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Car service" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.Amount" />
+                <ValidationMessage For="() => _form.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Date</label>
+                <InputDate class="form-control" @bind-Value="_form.Date" />
+                <ValidationMessage For="() => _form.Date" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Details (optional)</label>
+                <InputTextArea class="form-control" @bind-Value="_form.Details" rows="2" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (!_loaded)
+{
+    <p class="text-muted">Loading...</p>
+}
+else if (Finance.UpcomingCosts.Count == 0)
+{
+    <div class="empty-state">No upcoming costs added yet.</div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var cost in Finance.UpcomingCosts.OrderBy(u => u.Date))
+        {
+            <div class="item-card @(cost.Date < DateTime.Today ? "item-card--past" : "")">
+                <div class="item-card__header">
+                    <span class="item-card__name">@cost.Name</span>
+                    <span class="item-card__amount">@cost.Amount.ToString("C")</span>
+                </div>
+                <div class="item-card__meta">@cost.Date.ToString("dd MMM yyyy")</div>
+                @if (!string.IsNullOrWhiteSpace(cost.Details))
+                {
+                    <div class="item-card__details">@cost.Details</div>
+                }
+                <div class="item-card__actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(cost)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(cost.Id)">Remove</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_confirmRemoveId != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Are you sure you want to remove this upcoming cost?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemoveConfirmedAsync">Remove</button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemoveId = null">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _showForm;
+    private Guid? _editingId;
+    private Guid? _confirmRemoveId;
+
+    private UpcomingCost _form = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAddForm()
+    {
+        _form = new UpcomingCost();
+        _editingId = null;
+        _showForm = true;
+    }
+
+    private void OpenEditForm(UpcomingCost cost)
+    {
+        _form = new UpcomingCost
+        {
+            Id = cost.Id,
+            Name = cost.Name,
+            Amount = cost.Amount,
+            Date = cost.Date,
+            Details = cost.Details
+        };
+        _editingId = cost.Id;
+        _showForm = true;
+    }
+
+    private void CancelForm() { _showForm = false; _editingId = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_editingId == null)
+            await Finance.AddUpcomingCostAsync(_form);
+        else
+            await Finance.UpdateUpcomingCostAsync(_form);
+
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private void ConfirmRemove(Guid id) => _confirmRemoveId = id;
+
+    private async Task RemoveConfirmedAsync()
+    {
+        if (_confirmRemoveId != null)
+            await Finance.RemoveUpcomingCostAsync(_confirmRemoveId.Value);
+        _confirmRemoveId = null;
+    }
+}

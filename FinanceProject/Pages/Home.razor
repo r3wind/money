@@ -1,7 +1,104 @@
 ﻿@page "/"
+@inject FinanceStateService Finance
+@implements IAsyncDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1 class="page-title">📊 Dashboard</h1>
 
-Welcome to your new app.
+@if (!_loaded)
+{
+    <p class="text-muted">Loading...</p>
+}
+else
+{
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total monthly direct debits</div>
+            <div class="stat-value">@Finance.TotalMonthlyDirectDebits().ToString("C")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Direct debits remaining this month</div>
+            <div class="stat-value">@Finance.RemainingMonthDirectDebits().ToString("C")</div>
+            <div class="stat-sub">From @DateTime.Today.ToString("dd MMM") to end of month</div>
+        </div>
+        <div class="stat-card stat-card--highlight">
+            <div class="stat-label">Remaining debits + pro-rated budget</div>
+            <div class="stat-value">@Finance.RemainingMonthTotal().ToString("C")</div>
+            <div class="stat-sub">Includes @_budgetFractionPercent% of monthly budget</div>
+        </div>
+    </div>
+
+    @if (Finance.DirectDebits.Count > 0)
+    {
+        <h2 class="section-title">Direct Debits</h2>
+        <div class="summary-list">
+            @foreach (var dd in Finance.DirectDebits.OrderBy(d => d.DayOfMonth))
+            {
+                <div class="summary-item @(dd.DayOfMonth >= DateTime.Today.Day ? "summary-item--remaining" : "summary-item--past")">
+                    <span class="summary-item__name">@dd.Name</span>
+                    <span class="summary-item__meta">Day @dd.DayOfMonth</span>
+                    <span class="summary-item__amount">@dd.Amount.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Finance.BudgetCategories.Count > 0)
+    {
+        <h2 class="section-title">Monthly Budget</h2>
+        <div class="summary-list">
+            @foreach (var cat in Finance.BudgetCategories)
+            {
+                <div class="summary-item">
+                    <span class="summary-item__name">@cat.Name</span>
+                    <span class="summary-item__amount">@cat.MonthlyAmount.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Finance.UpcomingCosts.Count > 0)
+    {
+        <h2 class="section-title">Upcoming Costs</h2>
+        <div class="summary-list">
+            @foreach (var cost in Finance.UpcomingCosts.OrderBy(u => u.Date))
+            {
+                <div class="summary-item @(cost.Date >= DateTime.Today ? "summary-item--remaining" : "summary-item--past")">
+                    <span class="summary-item__name">@cost.Name</span>
+                    <span class="summary-item__meta">@cost.Date.ToString("dd MMM yyyy")</span>
+                    <span class="summary-item__amount">@cost.Amount.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Finance.DirectDebits.Count == 0 && Finance.BudgetCategories.Count == 0 && Finance.UpcomingCosts.Count == 0)
+    {
+        <div class="empty-state">
+            <p>No data yet. Use the menu to add direct debits, budget categories and upcoming costs.</p>
+        </div>
+    }
+}
+
+@code {
+    private bool _loaded;
+    private string _budgetFractionPercent = "0";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            var today = DateTime.Today;
+            var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+            var remainingDays = daysInMonth - today.Day + 1;
+            _budgetFractionPercent = Math.Round((decimal)remainingDays / daysInMonth * 100, 0).ToString();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
