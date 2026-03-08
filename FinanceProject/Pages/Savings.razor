@@ -1,0 +1,301 @@
+@page "/savings"
+@inject FinanceStateService Finance
+
+<PageTitle>Savings Pots</PageTitle>
+
+<h1 class="page-title">💰 Savings Pots</h1>
+
+@* ── Section 1: Savings Accounts ──────────────────────────── *@
+
+<h2 class="section-title">Savings Accounts</h2>
+<p class="text-muted" style="font-size:0.875rem;margin:-0.3rem 0 0.75rem;">Your top-level savings account balances, e.g. ISA, savings account.</p>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddAccountForm">+ Add Account</button>
+
+@if (_showAccountForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingAccountName == null ? "Add Savings Account" : "Edit Savings Account")</h2>
+        <EditForm Model="_accountForm" OnValidSubmit="SaveAccountAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Account Name</label>
+                <InputText class="form-control" @bind-Value="_accountForm.Name" placeholder="e.g. Richard ISA" />
+                <ValidationMessage For="() => _accountForm.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Balance (£)</label>
+                <InputNumber class="form-control" @bind-Value="_accountForm.Amount" />
+                <ValidationMessage For="() => _accountForm.Amount" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelAccountForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (!_loaded)
+{
+    <div class="d-flex align-items-center gap-2 text-muted my-3">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </div>
+}
+else if (Finance.SavingsPots.Count == 0)
+{
+    <div class="empty-state">No savings accounts added yet.</div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var pot in Finance.SavingsPots)
+        {
+            <div class="item-card">
+                <div class="item-card__header">
+                    <span class="item-card__name">@pot.Name</span>
+                    <span class="item-card__amount">@pot.Amount.ToGBP()</span>
+                </div>
+                <div class="item-card__actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditAccountForm(pot)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemoveAccount(pot.Name)">Remove</button>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="total-bar">
+        Total savings: <strong>@Finance.SavingsPots.Sum(p => p.Amount).ToGBP()</strong>
+    </div>
+}
+
+@* ── Section 2: Savings Pots ──────────────────────────────── *@
+
+<h2 class="section-title" style="margin-top:2rem;">Savings Pots</h2>
+<p class="text-muted" style="font-size:0.875rem;margin:-0.3rem 0 0.75rem;">Portions of your savings allocated to specific goals. Any remainder is counted as general savings.</p>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddPotForm">+ Add Pot</button>
+
+@if (_showPotForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingPotName == null ? "Add Savings Pot" : "Edit Savings Pot")</h2>
+        <EditForm Model="_potForm" OnValidSubmit="SavePotAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Pot Name</label>
+                <InputText class="form-control" @bind-Value="_potForm.Name" placeholder="e.g. Kids Savings" />
+                <ValidationMessage For="() => _potForm.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_potForm.Amount" />
+                <ValidationMessage For="() => _potForm.Amount" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelPotForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (_loaded)
+{
+    @if (Finance.SavingsSubPots.Count == 0)
+    {
+        <div class="empty-state">No pots added yet.</div>
+    }
+    else
+    {
+        <div class="item-list">
+            @foreach (var pot in Finance.SavingsSubPots)
+            {
+                <div class="item-card">
+                    <div class="item-card__header">
+                        <span class="item-card__name">@pot.Name</span>
+                        <span class="item-card__amount">@pot.Amount.ToGBP()</span>
+                    </div>
+                    <div class="item-card__actions">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditPotForm(pot)">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemovePot(pot.Name)">Remove</button>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="total-bar">
+            Total allocated to pots: <strong>@Finance.SavingsSubPots.Sum(p => p.Amount).ToGBP()</strong>
+        </div>
+    }
+
+    @* ── Section 3: General Savings ───────────────────────── *@
+
+    var totalAccounts = Finance.SavingsPots.Sum(p => p.Amount);
+    var totalPots = Finance.SavingsSubPots.Sum(p => p.Amount);
+    var generalSavings = totalAccounts - totalPots;
+
+    <h2 class="section-title" style="margin-top:2rem;">General Savings</h2>
+    <div class="stat-card @(generalSavings < 0 ? "stat-card--danger" : "stat-card--highlight")" style="max-width:300px;">
+        <div class="stat-label">Unallocated savings</div>
+        <div class="stat-value">@generalSavings.ToGBP()</div>
+        <div class="stat-sub">Total (@totalAccounts.ToGBP()) − pots (@totalPots.ToGBP())</div>
+    </div>
+}
+
+@* ── Confirm remove modals ────────────────────────────────── *@
+
+@if (_confirmRemoveAccountName != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Remove this savings account?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemoveAccountConfirmedAsync" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Remove
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemoveAccountName = null" disabled="@_saving">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_confirmRemovePotName != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Remove this savings pot?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemovePotConfirmedAsync" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Remove
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemovePotName = null" disabled="@_saving">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _saving;
+
+    private bool _showAccountForm;
+    private string? _editingAccountName;
+    private SavingsPot _accountForm = new();
+
+    private bool _showPotForm;
+    private string? _editingPotName;
+    private SavingsSubPot _potForm = new();
+
+    private string? _confirmRemoveAccountName;
+    private string? _confirmRemovePotName;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    // ── Savings Account methods ──────────────────────────────
+
+    private void OpenAddAccountForm()
+    {
+        _accountForm = new SavingsPot();
+        _editingAccountName = null;
+        _showAccountForm = true;
+        _showPotForm = false;
+    }
+
+    private void OpenEditAccountForm(SavingsPot pot)
+    {
+        _accountForm = new SavingsPot { Name = pot.Name, Amount = pot.Amount };
+        _editingAccountName = pot.Name;
+        _showAccountForm = true;
+        _showPotForm = false;
+    }
+
+    private void CancelAccountForm() => _showAccountForm = false;
+
+    private async Task SaveAccountAsync()
+    {
+        _saving = true;
+        if (_editingAccountName == null)
+            await Finance.AddSavingsPotAsync(_accountForm);
+        else
+            await Finance.UpdateSavingsPotAsync(_accountForm);
+        _saving = false;
+        _showAccountForm = false;
+        StateHasChanged();
+    }
+
+    private void ConfirmRemoveAccount(string name) => _confirmRemoveAccountName = name;
+
+    private async Task RemoveAccountConfirmedAsync()
+    {
+        _saving = true;
+        if (_confirmRemoveAccountName != null)
+        {
+            await Finance.RemoveSavingsPotAsync(_confirmRemoveAccountName);
+            _confirmRemoveAccountName = null;
+        }
+        _saving = false;
+        StateHasChanged();
+    }
+
+    // ── Savings Pot methods ──────────────────────────────────
+
+    private void OpenAddPotForm()
+    {
+        _potForm = new SavingsSubPot();
+        _editingPotName = null;
+        _showPotForm = true;
+        _showAccountForm = false;
+    }
+
+    private void OpenEditPotForm(SavingsSubPot pot)
+    {
+        _potForm = new SavingsSubPot { Name = pot.Name, Amount = pot.Amount };
+        _editingPotName = pot.Name;
+        _showPotForm = true;
+        _showAccountForm = false;
+    }
+
+    private void CancelPotForm() => _showPotForm = false;
+
+    private async Task SavePotAsync()
+    {
+        _saving = true;
+        if (_editingPotName == null)
+            await Finance.AddSavingsSubPotAsync(_potForm);
+        else
+            await Finance.UpdateSavingsSubPotAsync(_potForm);
+        _saving = false;
+        _showPotForm = false;
+        StateHasChanged();
+    }
+
+    private void ConfirmRemovePot(string name) => _confirmRemovePotName = name;
+
+    private async Task RemovePotConfirmedAsync()
+    {
+        _saving = true;
+        if (_confirmRemovePotName != null)
+        {
+            await Finance.RemoveSavingsSubPotAsync(_confirmRemovePotName);
+            _confirmRemovePotName = null;
+        }
+        _saving = false;
+        StateHasChanged();
+    }
+}

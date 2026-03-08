@@ -1,0 +1,171 @@
+@page "/income"
+@inject FinanceStateService Finance
+@using IncomeModel = FinanceProject.Models.Income
+
+<PageTitle>Monthly Income</PageTitle>
+
+<h1 class="page-title">💷 Monthly Income</h1>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Income</button>
+
+@if (_showForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Income" : "Edit Income")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Salary, Pension" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly Amount (&pound;)</label>
+                <InputNumber class="form-control" @bind-Value="_form.Amount" />
+                <ValidationMessage For="() => _form.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Details (optional)</label>
+                <InputTextArea class="form-control" @bind-Value="_form.Details" rows="2" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (!_loaded)
+{
+    <div class="d-flex align-items-center gap-2 text-muted my-3">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </div>
+}
+else if (Finance.Incomes.Count == 0)
+{
+    <div class="empty-state">No incomes added yet.</div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var inc in Finance.Incomes)
+        {
+            <div class="item-card">
+                <div class="item-card__header">
+                    <span class="item-card__name">@inc.Name</span>
+                    <span class="item-card__amount">@inc.Amount.ToGBP()</span>
+                </div>
+                <!-- Removed Day of Month meta -->
+                @if (!string.IsNullOrWhiteSpace(inc.Details))
+                {
+                    <div class="item-card__details">@inc.Details</div>
+                }
+                <div class="item-card__actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(inc)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(inc.Id)">Remove</button>
+                    <button class="btn btn-sm btn-outline-success" @onclick="() => TogglePaidAsync(inc)" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                        @((inc.PaidThisMonth ? "Mark unpaid" : "Mark paid"))
+                    </button>
+                </div>
+                <div class="item-card__meta">
+                    <span class="badge @(inc.PaidThisMonth ? "bg-success" : "bg-warning")">@((inc.PaidThisMonth ? "Paid" : "Unpaid"))</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_confirmRemoveId != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Are you sure you want to remove this income?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemoveConfirmedAsync" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Remove
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemoveId = null" disabled="@_saving">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _saving;
+    private bool _showForm;
+    private Guid? _editingId;
+    private Guid? _confirmRemoveId;
+
+    private IncomeModel _form = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAddForm()
+    {
+        _form = new IncomeModel();
+        _editingId = null;
+        _showForm = true;
+    }
+
+    private void OpenEditForm(IncomeModel inc)
+    {
+        _form = new IncomeModel
+        {
+            Id = inc.Id,
+            Name = inc.Name,
+            Amount = inc.Amount,
+            PaidThisMonth = inc.PaidThisMonth,
+            Details = inc.Details
+        };
+        _editingId = inc.Id;
+        _showForm = true;
+    }
+
+    private void CancelForm() { _showForm = false; _editingId = null; }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        if (_editingId == null)
+            await Finance.AddIncomeAsync(_form);
+        else
+            await Finance.UpdateIncomeAsync(_form);
+        _saving = false;
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private void ConfirmRemove(Guid id) => _confirmRemoveId = id;
+
+    private async Task RemoveConfirmedAsync()
+    {
+        _saving = true;
+        if (_confirmRemoveId != null)
+            await Finance.RemoveIncomeAsync(_confirmRemoveId.Value);
+        _saving = false;
+        _confirmRemoveId = null;
+    }
+
+    private async Task TogglePaidAsync(IncomeModel inc)
+    {
+        _saving = true;
+        await Finance.ToggleIncomePaidAsync(inc.Id, !inc.PaidThisMonth);
+        _saving = false;
+    }
+}

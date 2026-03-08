@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FinanceProject</title>
+    <base href="/money/" />
+    <link rel="preload" id="webassembly" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="FinanceProject.styles.css" rel="stylesheet" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <script>
+        window.firebaseConfig = {
+            apiKey: "FIREBASE_API_KEY_PLACEHOLDER",
+            authDomain: "FIREBASE_AUTH_DOMAIN_PLACEHOLDER",
+            projectId: "FIREBASE_PROJECT_ID_PLACEHOLDER",
+            storageBucket: "FIREBASE_STORAGE_BUCKET_PLACEHOLDER",
+            messagingSenderId: "FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER",
+            appId: "FIREBASE_APP_ID_PLACEHOLDER",
+            measurementId: "FIREBASE_MEASUREMENT_ID_PLACEHOLDER"
+        };
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script>firebase.initializeApp(window.firebaseConfig);</script>
+    <script src="js/firebaseInterop.js"></script>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

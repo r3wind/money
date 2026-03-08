@@ -1,0 +1,63 @@
+name: Deploy Blazor WebAssembly to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          include-prerelease: true
+
+      - name: Publish
+        run: dotnet publish -c Release -o build
+
+      - name: Fix fingerprinted Blazor bootstrap
+        run: cp build/wwwroot/_framework/blazor.webassembly.*.js build/wwwroot/_framework/blazor.webassembly.js
+
+      - name: Add .nojekyll
+        run: touch build/wwwroot/.nojekyll
+
+      - name: Copy index.html to 404.html
+        run: cp build/wwwroot/index.html build/wwwroot/404.html
+      - name: Inject Firebase config
+        run: |
+          sed -i "s/FIREBASE_API_KEY_PLACEHOLDER/${{ secrets.FIREBASE_API_KEY }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_AUTH_DOMAIN_PLACEHOLDER/${{ secrets.FIREBASE_AUTH_DOMAIN }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_PROJECT_ID_PLACEHOLDER/${{ secrets.FIREBASE_PROJECT_ID }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_STORAGE_BUCKET_PLACEHOLDER/${{ secrets.FIREBASE_STORAGE_BUCKET }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER/${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_APP_ID_PLACEHOLDER/${{ secrets.FIREBASE_APP_ID }}/g" build/wwwroot/index.html
+          sed -i "s/FIREBASE_MEASUREMENT_ID_PLACEHOLDER/${{ secrets.FIREBASE_MEASUREMENT_ID }}/g" build/wwwroot/index.html
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

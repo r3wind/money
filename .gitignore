@@ -1,0 +1,9 @@
+# Ignore build output directories
+bin/
+!bin/Release/
+!bin/Release/net10.0/**
+obj/
+Debug/
+
+# Ignore Visual Studio folder
+.vs/

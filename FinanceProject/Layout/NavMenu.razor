@@ -1,0 +1,81 @@
+﻿@inject FirebaseAuthService AuthService
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">💰 My Finance</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span aria-hidden="true">📊</span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="direct-debits">
+                <span aria-hidden="true">💳</span> Direct Debits
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="budget">
+                <span aria-hidden="true">🛒</span> Monthly Budget
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="upcoming-costs">
+                <span aria-hidden="true">📅</span> Upcoming Costs
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="income">
+                <span aria-hidden="true">💷</span> Monthly Income
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="bank-balance">
+                <span aria-hidden="true">🏦</span> Bank Balance
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="savings">
+                <span aria-hidden="true">💰</span> Savings
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="credit-cards">
+                <span aria-hidden="true">💳</span> Credit Cards
+            </NavLink>
+        </div>
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3 mt-2">
+                    <span class="nav-link text-white-50 small">👤 @context.User.Identity?.Name</span>
+                </div>
+                <div class="nav-item px-3 pb-2">
+                    <button class="btn btn-sm btn-outline-light w-100" @onclick="SignOutAsync">Sign Out</button>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task SignOutAsync()
+    {
+        await AuthService.SignOutAsync();
+    }
+}

@@ -1,0 +1,109 @@
+@inject FirebaseAuthService AuthService
+
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow" style="width: 24rem;">
+        <div class="card-body p-4">
+            <h4 class="card-title text-center mb-4">💰 My Finance</h4>
+
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item w-50 text-center">
+                    <button class="nav-link w-100 @(_isRegistering ? "" : "active")" @onclick="() => SwitchMode(false)">Sign In</button>
+                </li>
+                <li class="nav-item w-50 text-center">
+                    <button class="nav-link w-100 @(_isRegistering ? "active" : "")" @onclick="() => SwitchMode(true)">Register</button>
+                </li>
+            </ul>
+
+            @if (_error != null)
+            {
+                <div class="alert alert-danger">@_error</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" @bind="_email" placeholder="you@example.com" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" @bind="_password" />
+            </div>
+
+            @if (_isRegistering)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" @bind="_confirmPassword" />
+                </div>
+                <button class="btn btn-success w-100 mb-2" @onclick="RegisterWithEmailAsync" disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Create Account
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-primary w-100 mb-2" @onclick="SignInWithEmailAsync" disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    Sign In
+                </button>
+
+                <hr />
+
+                <button class="btn btn-outline-danger w-100" @onclick="SignInWithGoogleAsync" disabled="@_loading">
+                    Sign In with Google
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _email = "";
+    private string _password = "";
+    private string _confirmPassword = "";
+    private string? _error;
+    private bool _loading;
+    private bool _isRegistering;
+
+    private void SwitchMode(bool registering)
+    {
+        _isRegistering = registering;
+        _error = null;
+        _password = "";
+        _confirmPassword = "";
+    }
+
+    private async Task SignInWithEmailAsync()
+    {
+        _loading = true;
+        _error = null;
+        _error = await AuthService.SignInWithEmailAsync(_email, _password);
+        _loading = false;
+    }
+
+    private async Task RegisterWithEmailAsync()
+    {
+        _error = null;
+        if (_password != _confirmPassword)
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+        _loading = true;
+        _error = await AuthService.RegisterWithEmailAsync(_email, _password);
+        _loading = false;
+    }
+
+    private async Task SignInWithGoogleAsync()
+    {
+        _loading = true;
+        _error = null;
+        _error = await AuthService.SignInWithGoogleAsync();
+        _loading = false;
+    }
+}

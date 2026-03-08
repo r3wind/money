@@ -1,0 +1,165 @@
+@page "/direct-debits"
+@inject FinanceStateService Finance
+
+<PageTitle>Direct Debits</PageTitle>
+
+<h1 class="page-title">&#x1F4B3; Direct Debits</h1>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Direct Debit</button>
+
+@if (_showForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Direct Debit" : "Edit Direct Debit")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Netflix" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.Amount" />
+                <ValidationMessage For="() => _form.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Day of Month</label>
+                <InputNumber class="form-control" @bind-Value="_form.DayOfMonth" min="1" max="31" />
+                <ValidationMessage For="() => _form.DayOfMonth" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Details (optional)</label>
+                <InputTextArea class="form-control" @bind-Value="_form.Details" rows="2" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (!_loaded)
+{
+    <div class="d-flex align-items-center gap-2 text-muted my-3">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </div>
+}
+else if (Finance.DirectDebits.Count == 0)
+{
+    <div class="empty-state">No direct debits added yet.</div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var dd in Finance.DirectDebits.OrderBy(d => d.DayOfMonth))
+        {
+            <div class="item-card">
+                <div class="item-card__header">
+                    <span class="item-card__name">@dd.Name</span>
+                    <span class="item-card__amount">@dd.Amount.ToGBP()</span>
+                </div>
+                <div class="item-card__meta">Day @dd.DayOfMonth of the month</div>
+                @if (!string.IsNullOrWhiteSpace(dd.Details))
+                {
+                    <div class="item-card__details">@dd.Details</div>
+                }
+                <div class="item-card__actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(dd)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(dd.Id)">Remove</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_confirmRemoveId != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Are you sure you want to remove this direct debit?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemoveConfirmedAsync" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Remove
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemoveId = null" disabled="@_saving">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _saving;
+    private bool _showForm;
+    private Guid? _editingId;
+    private Guid? _confirmRemoveId;
+
+    private DirectDebit _form = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAddForm()
+    {
+        _form = new DirectDebit();
+        _editingId = null;
+        _showForm = true;
+    }
+
+    private void OpenEditForm(DirectDebit dd)
+    {
+        _form = new DirectDebit
+        {
+            Id = dd.Id,
+            Name = dd.Name,
+            Amount = dd.Amount,
+            DayOfMonth = dd.DayOfMonth,
+            Details = dd.Details
+        };
+        _editingId = dd.Id;
+        _showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        if (_editingId == null)
+            await Finance.AddDirectDebitAsync(_form);
+        else
+            await Finance.UpdateDirectDebitAsync(_form);
+        _saving = false;
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private void ConfirmRemove(Guid id) => _confirmRemoveId = id;
+
+    private async Task RemoveConfirmedAsync()
+    {
+        _saving = true;
+        if (_confirmRemoveId != null)
+            await Finance.RemoveDirectDebitAsync(_confirmRemoveId.Value);
+        _saving = false;
+        _confirmRemoveId = null;
+    }
+}

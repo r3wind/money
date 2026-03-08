@@ -1,0 +1,148 @@
+@page "/budget"
+@inject FinanceStateService Finance
+
+<PageTitle>Monthly Budget</PageTitle>
+
+<h1 class="page-title">&#x1F6D2; Monthly Budget</h1>
+
+<button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Category</button>
+
+@if (_showForm)
+{
+    <div class="form-card">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Budget Category" : "Edit Budget Category")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Category Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Food, Petrol" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.MonthlyAmount" />
+                <ValidationMessage For="() => _form.MonthlyAmount" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@if (!_loaded)
+{
+    <div class="d-flex align-items-center gap-2 text-muted my-3">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </div>
+}
+else if (Finance.BudgetCategories.Count == 0)
+{
+    <div class="empty-state">No budget categories added yet.</div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var cat in Finance.BudgetCategories)
+        {
+            <div class="item-card">
+                <div class="item-card__header">
+                    <span class="item-card__name">@cat.Name</span>
+                    <span class="item-card__amount">@cat.MonthlyAmount.ToGBP()</span>
+                </div>
+                <div class="item-card__actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(cat)">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(cat.Id)">Remove</button>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="total-bar">
+        Total monthly budget: <strong>@Finance.BudgetCategories.Sum(b => b.MonthlyAmount).ToGBP()</strong>
+    </div>
+}
+
+@if (_confirmRemoveId != null)
+{
+    <div class="modal-backdrop">
+        <div class="modal-dialog-simple">
+            <p>Are you sure you want to remove this category?</p>
+            <div class="form-actions">
+                <button class="btn btn-danger" @onclick="RemoveConfirmedAsync" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Remove
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmRemoveId = null" disabled="@_saving">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _saving;
+    private bool _showForm;
+    private Guid? _editingId;
+    private Guid? _confirmRemoveId;
+
+    private BudgetCategory _form = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAddForm()
+    {
+        _form = new BudgetCategory();
+        _editingId = null;
+        _showForm = true;
+    }
+
+    private void OpenEditForm(BudgetCategory cat)
+    {
+        _form = new BudgetCategory
+        {
+            Id = cat.Id,
+            Name = cat.Name,
+            MonthlyAmount = cat.MonthlyAmount
+        };
+        _editingId = cat.Id;
+        _showForm = true;
+    }
+
+    private void CancelForm() { _showForm = false; _editingId = null; }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        if (_editingId == null)
+            await Finance.AddBudgetCategoryAsync(_form);
+        else
+            await Finance.UpdateBudgetCategoryAsync(_form);
+        _saving = false;
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private void ConfirmRemove(Guid id) => _confirmRemoveId = id;
+
+    private async Task RemoveConfirmedAsync()
+    {
+        _saving = true;
+        if (_confirmRemoveId != null)
+            await Finance.RemoveBudgetCategoryAsync(_confirmRemoveId.Value);
+        _saving = false;
+        _confirmRemoveId = null;
+    }
+}
