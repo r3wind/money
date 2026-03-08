@@ -1,0 +1,125 @@
+@page "/forecast"
+@inject FinanceStateService Finance
+@implements IAsyncDisposable
+
+<PageTitle>Forecast</PageTitle>
+
+<h1 class="page-title">📈 Future Forecast</h1>
+
+@if (!_loaded)
+{
+    <div class="d-flex align-items-center gap-2 text-muted my-3">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </div>
+}
+else if (Finance.BankBalance == 0)
+{
+    <div class="stat-card stat-card--muted">
+        <div class="stat-label">Forecast unavailable</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub"><a href="bank-balance">Enter your bank balance</a> to see forecasts</div>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+        <label class="form-label mb-0 fw-semibold" for="monthsInput">Months to forecast:</label>
+        <input id="monthsInput" type="number" class="form-control" style="width: 80px;"
+               min="1" max="120" @bind="_forecastMonths" @bind:event="onchange" />
+    </div>
+    @BuildChart()
+}
+
+@code {
+    private bool _loaded;
+    private int _forecastMonths = 12;
+
+    private MarkupString BuildChart()
+    {
+        var months = Math.Clamp(_forecastMonths, 1, 120);
+        var data = Finance.GetFutureForecast(months);
+        if (data.Count == 0) return (MarkupString)"";
+
+        // Compact layout — ~6 bars visible in a ~390px mobile viewport
+        const int pTop = 50;
+        const int pBottom = 66;
+        const int pLeft = 76;
+        const int pRight = 12;
+        const int chartH = 420;
+        const int barW = 44;
+        const int barGap = 12;
+
+        var innerW = data.Count * (barW + barGap) - barGap;
+        var chartW = innerW + pLeft + pRight;
+        var dataH = chartH - pTop - pBottom;
+
+        // Y-axis range
+        var rawMin = (double)data.Min(d => d.Balance);
+        var rawMax = (double)data.Max(d => d.Balance);
+        if (rawMin == rawMax) { rawMin -= 100; rawMax += 100; }
+        var yPad = (rawMax - rawMin) * 0.15;
+        var yMin = rawMin - yPad;
+        var yMax = rawMax + yPad;
+
+        int ToY(double val) => pTop + (int)Math.Round(dataH * (yMax - val) / (yMax - yMin));
+
+        var zeroY = Math.Max(pTop, Math.Min(pTop + dataH, ToY(0)));
+        var minSvgW = Math.Max(360, chartW);
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<div style=\"overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0.5rem 0;box-shadow:0 1px 4px rgba(0,0,0,.06)\">");
+        sb.Append($"<svg viewBox=\"0 0 {chartW} {chartH}\" style=\"width:100%;min-width:{minSvgW}px;height:auto;display:block\">");
+
+        // Gridlines and Y-axis labels
+        for (int gi = 0; gi <= 5; gi++)
+        {
+            var gv = yMin + (yMax - yMin) * gi / 5.0;
+            var gy = ToY(gv);
+            sb.Append($"<line x1=\"{pLeft}\" y1=\"{gy}\" x2=\"{chartW - pRight}\" y2=\"{gy}\" stroke=\"#e5e7eb\" stroke-width=\"1\"/>");
+            sb.Append($"<text x=\"{pLeft - 6}\" y=\"{gy + 4}\" text-anchor=\"end\" font-size=\"11\" fill=\"#6b7280\">{((decimal)gv).ToGBPShort()}</text>");
+        }
+
+        // Zero reference line
+        sb.Append($"<line x1=\"{pLeft}\" y1=\"{zeroY}\" x2=\"{chartW - pRight}\" y2=\"{zeroY}\" stroke=\"#374151\" stroke-width=\"1.5\" stroke-dasharray=\"4 3\"/>");
+
+        // Bars
+        for (int i = 0; i < data.Count; i++)
+        {
+            var (label, bal) = data[i];
+            var bx = pLeft + i * (barW + barGap);
+            var bTop = ToY(Math.Max(0.0, (double)bal));
+            var bBot = ToY(Math.Min(0.0, (double)bal));
+            var bH = Math.Max(2, bBot - bTop);
+            var color = bal >= 0 ? "#15803d" : "#b91c1c";
+            var cx = bx + barW / 2;
+            var labelY = bal >= 0 ? bTop - 4 : bBot + 12;
+            var parts = label.Split(' ');
+
+            sb.Append("<g>");
+            sb.Append($"<rect x=\"{bx}\" y=\"{bTop}\" width=\"{barW}\" height=\"{bH}\" fill=\"{color}\" rx=\"3\"><title>{label}: {bal.ToGBP()}</title></rect>");
+            sb.Append($"<text x=\"{cx}\" y=\"{labelY}\" text-anchor=\"middle\" font-size=\"9\" fill=\"{color}\" font-weight=\"600\">{bal.ToGBPShort()}</text>");
+            sb.Append($"<text x=\"{cx}\" y=\"{chartH - pBottom + 16}\" text-anchor=\"middle\" font-size=\"11\" fill=\"#374151\">{parts[0]}</text>");
+            sb.Append($"<text x=\"{cx}\" y=\"{chartH - pBottom + 28}\" text-anchor=\"middle\" font-size=\"10\" fill=\"#6b7280\">{parts[1]}</text>");
+            sb.Append("</g>");
+        }
+
+        // Y-axis line
+        sb.Append($"<line x1=\"{pLeft}\" y1=\"{pTop}\" x2=\"{pLeft}\" y2=\"{pTop + dataH}\" stroke=\"#9ca3af\" stroke-width=\"1\"/>");
+        sb.Append("</svg></div>");
+
+        return (MarkupString)sb.ToString();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Finance.LoadAsync();
+            _loaded = true;
+            StateHasChanged();
+        }
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

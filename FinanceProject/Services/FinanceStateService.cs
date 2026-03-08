@@ -261,7 +261,38 @@ public class FinanceStateService
            + UnpaidIncome()
            + UnallocatedSavings();
 
-    // Income CRUD
+    public List<(string Label, decimal Balance)> GetFutureForecast(int months)
+    {
+        if (months <= 0) return [];
+
+        var result = new List<(string Label, decimal Balance)>(months);
+        var totalMonthlyIncome = Incomes.Sum(i => i.Amount);
+
+        // Month 1 uses the same logic as the "Forecast after next month's bills" card
+        decimal balance = NextMonthForecastAfterBills();
+        result.Add((DateTime.Today.AddMonths(1).ToString("MMM yyyy"), balance));
+
+        // Subsequent months: rolling projection (recurring debits, budget, income; one-off upcoming costs per month)
+        for (int m = 2; m <= months; m++)
+        {
+            var refDate = DateTime.Today.AddMonths(m);
+            var upcomingForMonth = UpcomingCosts
+                .Where(u => u.Date.Year == refDate.Year && u.Date.Month == refDate.Month)
+                .Sum(u => u.Amount);
+
+            balance = balance
+                - TotalMonthlyDirectDebits()
+                - FullMonthlyBudget()
+                - upcomingForMonth
+                + totalMonthlyIncome;
+
+            result.Add((refDate.ToString("MMM yyyy"), balance));
+        }
+
+        return result;
+    }
+
+
     public async Task AddIncomeAsync(Income item)
     {
         Incomes.Add(item);
