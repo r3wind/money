@@ -25,7 +25,8 @@ else
             var riskBalance = Finance.BankBalance
                 - Finance.RemainingMonthDirectDebits()
                 - Finance.ProRatedBudget()
-                - Finance.UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount)
+                - Finance.UpcomingCosts.Where(u => u.Date.Year == DateTime.Today.Year && u.Date.Month == DateTime.Today.Month).Sum(u => u.Amount)
+                + Finance.RemainingOneOffIncomingPayments()
                 - Finance.TotalCreditCardBalance();
 
             <div class="stat-card stat-card--featured @(nextMonthForecastVal < 0 ? "stat-card--danger" : "stat-card--highlight")">
@@ -40,9 +41,10 @@ else
                         − Pro-rated budget this month (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
                         − Upcoming costs this month: @Finance.UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount).ToGBP()<br />
                         − @nextMonthName debits: @Finance.NextMonthDirectDebits().ToGBP()<br />
-                        − Full monthly budget: @Finance.FullMonthlyBudget().ToGBP()<br />
+                        − Full monthly budget for @nextMonthName: @Finance.FullMonthlyBudget().ToGBP()<br />
                         − @nextMonthName upcoming costs: @Finance.NextMonthUpcomingCosts().ToGBP()<br />
                         − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()<br />
+                        + One-off incoming payments (this month + @nextMonthName): @Finance.CurrentAndNextMonthOneOffIncomingPayments().ToGBP()<br />
                         + Unpaid income: @Finance.UnpaidIncome().ToGBP()<br />
                         + Unallocated savings: @Finance.UnallocatedSavings().ToGBP()
                     </div>
@@ -60,6 +62,7 @@ else
                         − Remaining debits: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
                         − Pro-rated budget (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
                         − Upcoming costs: @Finance.UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount).ToGBP()<br />
+                        + One-off incoming payments: @Finance.RemainingOneOffIncomingPayments().ToGBP()<br />
                         + Unpaid income: @Finance.UnpaidIncome().ToGBP()<br />
                         − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()
                     </div>
@@ -105,9 +108,10 @@ else
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
                         − Remaining debits: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
                         − Pro-rated budget (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
-                        − Upcoming costs: @Finance.UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount).ToGBP()<br />
+                        − Upcoming costs (this month): @Finance.UpcomingCosts.Where(u => u.Date.Year == DateTime.Today.Year && u.Date.Month == DateTime.Today.Month).Sum(u => u.Amount).ToGBP()<br />
+                        + One-off incoming payments: @Finance.RemainingOneOffIncomingPayments().ToGBP()<br />
                         − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()<br />
-                        Formula: Bank balance − debits − budget − upcoming costs − credit cards
+                        Formula: Bank balance − debits − budget − upcoming costs + one-off incoming payments − credit cards
                     </div>
                 }
                 @if (riskBalance < 0)
@@ -218,10 +222,25 @@ else
         </div>
     }
 
-    @if (Finance.DirectDebits.Count == 0 && Finance.BudgetCategories.Count == 0 && Finance.UpcomingCosts.Count == 0)
+    @if (Finance.OneOffPayments.Count > 0)
+    {
+        <h2 class="section-title">One-Off Incoming Payments</h2>
+        <div class="summary-list">
+            @foreach (var payment in Finance.OneOffPayments.OrderBy(p => p.Date))
+            {
+                <div class="summary-item @(payment.Date >= DateTime.Today ? "summary-item--remaining" : "summary-item--past")">
+                    <span class="summary-item__name">@payment.Name</span>
+                    <span class="summary-item__meta">@payment.Date.ToString("dd MMM yyyy")</span>
+                    <span class="summary-item__amount">@payment.Amount.ToGBP()</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Finance.DirectDebits.Count == 0 && Finance.BudgetCategories.Count == 0 && Finance.UpcomingCosts.Count == 0 && Finance.OneOffPayments.Count == 0)
     {
         <div class="empty-state">
-            <p>No data yet. Use the menu to add direct debits, budget categories and upcoming costs.</p>
+            <p>No data yet. Use the menu to add direct debits, budget categories, upcoming costs and one-off incoming payments.</p>
         </div>
     }
 }

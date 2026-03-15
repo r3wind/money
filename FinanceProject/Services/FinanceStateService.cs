@@ -9,6 +9,7 @@ public class FinanceStateService
     public List<DirectDebit> DirectDebits { get; private set; } = [];
     public List<BudgetCategory> BudgetCategories { get; private set; } = [];
     public List<UpcomingCost> UpcomingCosts { get; private set; } = [];
+    public List<OneOffPayment> OneOffPayments { get; private set; } = [];
     public List<Income> Incomes { get; private set; } = [];
     public List<SavingsPot> SavingsPots { get; private set; } = [];
     public List<SavingsSubPot> SavingsSubPots { get; private set; } = [];
@@ -30,6 +31,7 @@ public class FinanceStateService
         DirectDebits = await LoadFromStorage<List<DirectDebit>>("finance_directdebits") ?? [];
         BudgetCategories = await LoadFromStorage<List<BudgetCategory>>("finance_budgetcategories") ?? [];
         UpcomingCosts = await LoadFromStorage<List<UpcomingCost>>("finance_upcomingcosts") ?? [];
+        OneOffPayments = await LoadFromStorage<List<OneOffPayment>>("finance_oneoffpayments") ?? [];
         Incomes = await LoadFromStorage<List<Income>>("finance_incomes") ?? [];
         SavingsPots = await LoadFromStorage<List<SavingsPot>>("finance_savingspots") ?? [];
         SavingsSubPots = await LoadFromStorage<List<SavingsSubPot>>("finance_savingssubpots") ?? [];
@@ -101,6 +103,26 @@ public class FinanceStateService
     {
         UpcomingCosts.RemoveAll(u => u.Id == id);
         await SaveUpcomingCostsAsync();
+    }
+
+    // One-Off Incoming Payments
+    public async Task AddOneOffPaymentAsync(OneOffPayment item)
+    {
+        OneOffPayments.Add(item);
+        await SaveOneOffPaymentsAsync();
+    }
+
+    public async Task UpdateOneOffPaymentAsync(OneOffPayment item)
+    {
+        var idx = OneOffPayments.FindIndex(p => p.Id == item.Id);
+        if (idx >= 0) OneOffPayments[idx] = item;
+        await SaveOneOffPaymentsAsync();
+    }
+
+    public async Task RemoveOneOffPaymentAsync(Guid id)
+    {
+        OneOffPayments.RemoveAll(p => p.Id == id);
+        await SaveOneOffPaymentsAsync();
     }
 
     // Savings Pots
@@ -203,6 +225,33 @@ public class FinanceStateService
     public decimal UnpaidIncome()
         => Incomes.Where(i => !i.PaidThisMonth).Sum(i => i.Amount);
 
+    public decimal RemainingOneOffIncomingPayments()
+    {
+        var today = DateTime.Today;
+        return OneOffPayments
+            .Where(p => p.Date >= today && p.Date.Year == today.Year && p.Date.Month == today.Month)
+            .Sum(p => p.Amount);
+    }
+
+    public decimal NextMonthOneOffIncomingPayments()
+    {
+        var nextMonth = DateTime.Today.AddMonths(1);
+        return OneOffPayments
+            .Where(p => p.Date.Year == nextMonth.Year && p.Date.Month == nextMonth.Month)
+            .Sum(p => p.Amount);
+    }
+
+    public decimal CurrentAndNextMonthOneOffIncomingPayments()
+    {
+        var today = DateTime.Today;
+        var nextMonth = today.AddMonths(1);
+        return OneOffPayments
+            .Where(p =>
+                (p.Date.Year == today.Year && p.Date.Month == today.Month) ||
+                (p.Date.Year == nextMonth.Year && p.Date.Month == nextMonth.Month))
+            .Sum(p => p.Amount);
+    }
+
     public decimal RemainingMonthTotal()
         => RemainingMonthDirectDebits() + ProRatedBudget();
 
@@ -211,6 +260,7 @@ public class FinanceStateService
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
            - UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount)
+           + RemainingOneOffIncomingPayments()
            + UnpaidIncome()
            - TotalCreditCardBalance();
 
@@ -258,6 +308,7 @@ public class FinanceStateService
            - FullMonthlyBudget()
            - NextMonthUpcomingCosts()
            - TotalCreditCardBalance()
+           + CurrentAndNextMonthOneOffIncomingPayments()
            + UnpaidIncome()
            + UnallocatedSavings();
 
@@ -279,11 +330,15 @@ public class FinanceStateService
             var upcomingForMonth = UpcomingCosts
                 .Where(u => u.Date.Year == refDate.Year && u.Date.Month == refDate.Month)
                 .Sum(u => u.Amount);
+            var oneOffIncomingForMonth = OneOffPayments
+                .Where(p => p.Date.Year == refDate.Year && p.Date.Month == refDate.Month)
+                .Sum(p => p.Amount);
 
             balance = balance
                 - TotalMonthlyDirectDebits()
                 - FullMonthlyBudget()
                 - upcomingForMonth
+                + oneOffIncomingForMonth
                 + totalMonthlyIncome;
 
             result.Add((refDate.ToString("MMM yyyy"), balance));
@@ -327,6 +382,9 @@ public class FinanceStateService
 
     private async Task SaveUpcomingCostsAsync()
         => await SaveToStorage("finance_upcomingcosts", UpcomingCosts);
+
+    private async Task SaveOneOffPaymentsAsync()
+        => await SaveToStorage("finance_oneoffpayments", OneOffPayments);
 
     private async Task SaveIncomesAsync()
         => await SaveToStorage("finance_incomes", Incomes);
