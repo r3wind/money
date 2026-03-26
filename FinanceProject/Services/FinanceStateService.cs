@@ -225,6 +225,9 @@ public class FinanceStateService
     public decimal UnpaidIncome()
         => Incomes.Where(i => !i.PaidThisMonth).Sum(i => i.Amount);
 
+    public decimal TotalMonthlyIncome()
+        => Incomes.Sum(i => i.Amount);
+
     public decimal RemainingOneOffIncomingPayments()
     {
         var today = DateTime.Today;
@@ -259,7 +262,7 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            + RemainingOneOffIncomingPayments()
            + UnpaidIncome()
            - TotalCreditCardBalance();
@@ -303,7 +306,7 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            - NextMonthDirectDebits()
            - FullMonthlyBudget()
            - NextMonthUpcomingCosts()
@@ -311,6 +314,30 @@ public class FinanceStateService
            + CurrentAndNextMonthOneOffIncomingPayments()
            + UnpaidIncome()
            + UnallocatedSavings();
+
+    public decimal NextMonthForecastAfterBillsIncomingNextMonthIncome()
+        => BankBalance
+           - RemainingMonthDirectDebits()
+           - ProRatedBudget()
+           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - NextMonthDirectDebits()
+           - FullMonthlyBudget()
+           - NextMonthUpcomingCosts()
+           - TotalCreditCardBalance()
+           + CurrentAndNextMonthOneOffIncomingPayments()
+           + UnpaidIncome()
+           + TotalMonthlyIncome()
+           + UnallocatedSavings();
+
+    public decimal NextMonthForecastAfterBillsExcludingSavings()
+        => BankBalance
+           - RemainingMonthDirectDebits()
+           - ProRatedBudget()
+           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - NextMonthDirectDebits()
+           - FullMonthlyBudget()
+           - NextMonthUpcomingCosts()
+           - TotalCreditCardBalance();
 
     public List<(string Label, decimal Balance)> GetFutureForecast(int months)
     {
