@@ -138,6 +138,17 @@ else
             </div>
         }
 
+
+        <div class="stat-card stat-card--muted">
+            <div class="stat-label">Disposable income (monthly)</div>
+            <div class="stat-value">@Finance.DisposableIncome().ToGBP()</div>
+            <div class="stat-sub" style="margin-top:0.4rem;">
+                Total monthly income: @Finance.TotalMonthlyIncome().ToGBP()<br />
+                − Total direct debits: @Finance.TotalMonthlyDirectDebits().ToGBP()<br />
+                − Total monthly budget: @Finance.FullMonthlyBudget().ToGBP()
+            </div>
+        </div>
+
         <div class="stat-card">
             <div class="stat-label">Total monthly direct debits</div>
             <div class="stat-value">@Finance.TotalMonthlyDirectDebits().ToGBP()</div>

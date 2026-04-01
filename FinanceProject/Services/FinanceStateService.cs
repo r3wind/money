@@ -228,6 +228,9 @@ public class FinanceStateService
     public decimal TotalMonthlyIncome()
         => Incomes.Sum(i => i.Amount);
 
+    public decimal DisposableIncome()
+        => TotalMonthlyIncome() - TotalMonthlyDirectDebits() - FullMonthlyBudget();
+
     public decimal RemainingOneOffIncomingPayments()
     {
         var today = DateTime.Today;
