@@ -22,8 +22,9 @@ else
         {
             <!-- FORECAST: NEXT MONTH (EXCLUDING NEXT MONTH INCOME) -->
             <div class="stat-card stat-card--featured @(Calc.NextMonthForecast(false) < 0 ? "stat-card--danger" : "stat-card--highlight")">
-                <div class="stat-label">
-                    Forecast after <b>@NextMonthName</b>'s bills (<b>EXCLUDING</b> next month income)
+                <div class="stat-label stat-label--with-icon stat-label--headline">
+                    <span class="stat-label__icon">📈</span>
+                    Forecast after <b>@NextMonthName&apos;s</b> bills (<b>EXCLUDING</b> next month income)
                 </div>
 
                 <div class="stat-value">@Calc.NextMonthForecast(false).ToGBP()</div>
@@ -54,8 +55,9 @@ else
 
             <!-- FORECAST: NEXT MONTH (INCLUDING NEXT MONTH INCOME) -->
             <div class="stat-card stat-card--featured @(Calc.NextMonthForecast(true) < 0 ? "stat-card--danger" : "stat-card--highlight")">
-                <div class="stat-label">
-                    Forecast after <b>@NextMonthName</b>'s bills (<b>INCLUDING</b> next month income)
+                <div class="stat-label stat-label--with-icon stat-label--headline">
+                    <span class="stat-label__icon">🧮</span>
+                    Forecast after <b>@NextMonthName&apos;s</b> bills (<b>INCLUDING</b> next month income)
                 </div>
 
                 <div class="stat-value">@Calc.NextMonthForecast(true).ToGBP()</div>
@@ -87,7 +89,7 @@ else
 
             <!-- END OF MONTH WITHOUT INCOME -->
             <div class="stat-card @(Calc.EndOfMonthBalanceExcIncome < 0 ? "stat-card--danger" : "stat-card--success")">
-                <div class="stat-label">Bank balance end of this month <b>without</b> income</div>
+                <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">🏁</span> Bank balance end of this month <b>without</b> income</div>
                 <div class="stat-value">@Calc.EndOfMonthBalanceExcIncome.ToGBP()</div>
 
                 <button class="btn btn-sm btn-outline-light mt-1"
@@ -109,7 +111,7 @@ else
 
             <!-- END OF MONTH WITH INCOME -->
             <div class="stat-card @(Calc.EndOfMonthBalance < 0 ? "stat-card--danger" : "stat-card--success")">
-                <div class="stat-label">Bank balance end of this month <b>with</b> income</div>
+                <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">💸</span> Bank balance end of this month <b>with</b> income</div>
                 <div class="stat-value">@Calc.EndOfMonthBalance.ToGBP()</div>
 
                 <button class="btn btn-sm btn-outline-light mt-1"
@@ -164,7 +166,7 @@ else
 
         <!-- DISPOSABLE INCOME -->
         <div class="stat-card stat-card--muted">
-            <div class="stat-label">Disposable income (monthly)</div>
+            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">✨</span> Disposable income (monthly)</div>
             <div class="stat-value">@Calc.DisposableIncome.ToGBP()</div>
 
             <div class="stat-label" style="font-size:0.95em;margin-bottom:0.2rem;">
@@ -180,7 +182,7 @@ else
 
         <!-- DIRECT DEBITS -->
         <div class="stat-card">
-            <div class="stat-label">Total monthly direct debits</div>
+            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">💳</span> Total monthly direct debits</div>
             <div class="stat-value">@Calc.TotalDirectDebits.ToGBP()</div>
 
             <button class="btn btn-sm btn-outline-secondary mt-1"
@@ -201,7 +203,7 @@ else
 
         <!-- REMAINING DEBITS -->
         <div class="stat-card">
-            <div class="stat-label">Direct debits remaining this month</div>
+            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">⏳</span> Direct debits remaining this month</div>
             <div class="stat-value">@Calc.RemainingDirectDebits.ToGBP()</div>
 
             <button class="btn btn-sm btn-outline-secondary mt-1"
@@ -223,7 +225,7 @@ else
 
         <!-- REMAINING DEBITS + PRO-RATED BUDGET -->
         <div class="stat-card">
-            <div class="stat-label">Remaining debits + pro-rated budget</div>
+            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">🧭</span> Remaining debits + pro-rated budget</div>
             <div class="stat-value">@Calc.RemainingDirectDebits.ToGBP()</div>
 
             <button class="btn btn-sm btn-outline-secondary mt-1"
