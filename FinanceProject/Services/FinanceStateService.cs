@@ -209,7 +209,7 @@ public class FinanceStateService
     {
         var today = DateTime.Today;
         return DirectDebits
-            .Where(d => d.DayOfMonth >= today.Day)
+            .Where(d => d.DayOfMonth > today.Day)
             .Sum(d => d.Amount);
     }
 
@@ -262,9 +262,15 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            + RemainingOneOffIncomingPayments()
            + UnpaidIncome()
+           - TotalCreditCardBalance();
+    public decimal ProjectedBalanceExcIncome()
+        => BankBalance
+           - RemainingMonthDirectDebits()
+           - ProRatedBudget()
+           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            - TotalCreditCardBalance();
 
     public decimal FullMonthlyBudget()
@@ -306,7 +312,7 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            - NextMonthDirectDebits()
            - FullMonthlyBudget()
            - NextMonthUpcomingCosts()
@@ -319,7 +325,7 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            - NextMonthDirectDebits()
            - FullMonthlyBudget()
            - NextMonthUpcomingCosts()
@@ -333,7 +339,7 @@ public class FinanceStateService
         => BankBalance
            - RemainingMonthDirectDebits()
            - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date >= DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
+           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
            - NextMonthDirectDebits()
            - FullMonthlyBudget()
            - NextMonthUpcomingCosts()
