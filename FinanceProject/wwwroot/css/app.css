@@ -200,6 +200,14 @@ code {
     color: #dbe4f0;
 }
 
+.savings-help {
+    margin: -0.3rem 0 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+    max-width: 56rem;
+}
+
 /* Dashboard stat cards */
 .dashboard-grid {
     display: grid;
