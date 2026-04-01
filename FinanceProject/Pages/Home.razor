@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject FinanceStateService Finance
+@inject FinanceCalculator Calc
 @implements IAsyncDisposable
 
 <PageTitle>Dashboard</PageTitle>
@@ -16,107 +17,130 @@
 else
 {
     <div class="dashboard-grid">
+
         @if (Finance.BankBalance != 0)
         {
-            var endOfMonthBalance = Finance.ProjectedBalance();
-            var endOfMonthBalanceExcIncome = Finance.ProjectedBalanceExcIncome();
-            var projectedWithSavings = endOfMonthBalance + Finance.UnallocatedSavings();
-            var nextMonthForecastVal = Finance.NextMonthForecastAfterBills();
-            var nextMonthForecastIncludingNextMonthIncomeVal = Finance.NextMonthForecastAfterBillsIncomingNextMonthIncome();
-            var nextMonthForecastExcludingIncomeVal = Finance.NextMonthForecastAfterBillsExcludingSavings();
-            var nextMonthName = DateTime.Today.AddMonths(1).ToString("MMMM");
-            var riskBalance = Finance.BankBalance
-                - Finance.RemainingMonthDirectDebits()
-                - Finance.ProRatedBudget()
-                - Finance.UpcomingCosts.Where(u => u.Date.Year == DateTime.Today.Year && u.Date.Month == DateTime.Today.Month).Sum(u => u.Amount)
-                + Finance.RemainingOneOffIncomingPayments()
-                - Finance.TotalCreditCardBalance();
+            <!-- FORECAST: NEXT MONTH (EXCLUDING NEXT MONTH INCOME) -->
+            <div class="stat-card stat-card--featured @(Calc.NextMonthForecast(false) < 0 ? "stat-card--danger" : "stat-card--highlight")">
+                <div class="stat-label">
+                    Forecast after <b>@NextMonthName</b>'s bills (<b>EXCLUDING</b> next month income)
+                </div>
 
-            <div class="stat-card stat-card--featured @(nextMonthForecastVal < 0 ? "stat-card--danger" : "stat-card--highlight")">
-                <div class="stat-label">Forecast after <b>@nextMonthName's</b> bills (<b>EXCLUDING</b> next month unpaid income)</div>
-                <div class="stat-value">@nextMonthForecastVal.ToGBP()</div>
-                <div class="stat-label">@((nextMonthForecastVal + @Finance.SavingsSubPots.Sum(p => p.Amount)).ToGBP()) with allocated savings</div>
-                <button class="btn btn-sm btn-outline-light mt-1" @onclick="() => _showBreakdownNextMonth = !_showBreakdownNextMonth">@(_showBreakdownNextMonth ? "Hide breakdown" : "Show breakdown")</button>
+                <div class="stat-value">@Calc.NextMonthForecast(false).ToGBP()</div>
+                <div class="stat-label">@((Calc.NextMonthForecast(false) + Calc.AllocatedSavings).ToGBP()) with allocated savings</div>
+
+                <button class="btn btn-sm btn-outline-light mt-1"
+                        @onclick="() => _showBreakdownNextMonth = !_showBreakdownNextMonth">
+                    @(_showBreakdownNextMonth ? "Hide breakdown" : "Show breakdown")
+                </button>
+
                 @if (_showBreakdownNextMonth)
                 {
                     <div class="stat-sub" style="margin-top:0.6rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits this month: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
-                        − Pro-rated budget this month (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
-                        − Upcoming costs this month: @Finance.UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount).ToGBP()<br />
-                        − @nextMonthName upcoming costs: @Finance.NextMonthUpcomingCosts().ToGBP()<br />
-                        − @nextMonthName debits: @Finance.NextMonthDirectDebits().ToGBP()<br />
-                        − Full monthly budget for @nextMonthName: @Finance.FullMonthlyBudget().ToGBP()<br />
-                        − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()<br />
-                        + One-off incoming payments (this month + @nextMonthName): @Finance.CurrentAndNextMonthOneOffIncomingPayments().ToGBP()<br />
-                        + Unpaid income this month: @Finance.UnpaidIncome().ToGBP()<br />
-                        + Unallocated savings: @Finance.UnallocatedSavings().ToGBP()
+                        − Remaining debits this month: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − Pro-rated budget this month (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
+                        − Upcoming costs this month: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        − @NextMonthName upcoming costs: @Calc.UpcomingCostsNextMonth.ToGBP()<br />
+                        − @NextMonthName debits: @Calc.TotalDirectDebits.ToGBP()<br />
+                        − Full monthly budget: @Calc.TotalBudget.ToGBP()<br />
+                        − Credit cards: @Calc.CreditCardBalance.ToGBP()<br />
+                        + One-off incoming payments (this + next month): @((Calc.OneOffIncomingThisMonth + Calc.OneOffIncomingNextMonth).ToGBP())<br />
+                        + Unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
+                        + Unallocated savings: @Calc.UnallocatedSavings.ToGBP()
                     </div>
                 }
             </div>
 
-            <div class="stat-card stat-card--featured @(nextMonthForecastIncludingNextMonthIncomeVal < 0 ? "stat-card--danger" : "stat-card--highlight")">
-                <div class="stat-label">Forecast after <b>@nextMonthName's</b> bills (<b>INCLUDING</b> next month income)</div>
-                <div class="stat-value">@nextMonthForecastIncludingNextMonthIncomeVal.ToGBP()</div>
-                <div class="stat-label">@((nextMonthForecastIncludingNextMonthIncomeVal + @Finance.SavingsSubPots.Sum(p => p.Amount)).ToGBP()) with allocated savings</div>
-                <button class="btn btn-sm btn-outline-light mt-1" @onclick="() => _showBreakdownNextMonthIncIncome = !_showBreakdownNextMonthIncIncome">@(_showBreakdownNextMonthIncIncome ? "Hide breakdown" : "Show breakdown")</button>
+            <!-- FORECAST: NEXT MONTH (INCLUDING NEXT MONTH INCOME) -->
+            <div class="stat-card stat-card--featured @(Calc.NextMonthForecast(true) < 0 ? "stat-card--danger" : "stat-card--highlight")">
+                <div class="stat-label">
+                    Forecast after <b>@NextMonthName</b>'s bills (<b>INCLUDING</b> next month income)
+                </div>
+
+                <div class="stat-value">@Calc.NextMonthForecast(true).ToGBP()</div>
+                <div class="stat-label">@((Calc.NextMonthForecast(true) + Calc.AllocatedSavings).ToGBP()) with allocated savings</div>
+
+                <button class="btn btn-sm btn-outline-light mt-1"
+                        @onclick="() => _showBreakdownNextMonthIncIncome = !_showBreakdownNextMonthIncIncome">
+                    @(_showBreakdownNextMonthIncIncome ? "Hide breakdown" : "Show breakdown")
+                </button>
+
                 @if (_showBreakdownNextMonthIncIncome)
                 {
                     <div class="stat-sub" style="margin-top:0.6rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits this month: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
-                        − Pro-rated budget this month (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
-                        − Upcoming costs this month: @Finance.UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount).ToGBP()<br />
-                        − @nextMonthName upcoming costs: @Finance.NextMonthUpcomingCosts().ToGBP()<br />
-                        − @nextMonthName debits: @Finance.NextMonthDirectDebits().ToGBP()<br />
-                        − Full monthly budget for @nextMonthName: @Finance.FullMonthlyBudget().ToGBP()<br />
-                        − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()<br />
-                        + One-off incoming payments (this month + @nextMonthName): @Finance.CurrentAndNextMonthOneOffIncomingPayments().ToGBP()<br />
-                        + Unpaid income this month: @Finance.UnpaidIncome().ToGBP()<br />
-                        + Next months income: @Finance.TotalMonthlyIncome().ToGBP()<br />
-                        + Unallocated savings: @Finance.UnallocatedSavings().ToGBP()
+                        − Remaining debits this month: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − Pro-rated budget this month (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
+                        − Upcoming costs this month: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        − @NextMonthName upcoming costs: @Calc.UpcomingCostsNextMonth.ToGBP()<br />
+                        − @NextMonthName debits: @Calc.TotalDirectDebits.ToGBP()<br />
+                        − Full monthly budget: @Calc.TotalBudget.ToGBP()<br />
+                        − Credit cards: @Calc.CreditCardBalance.ToGBP()<br />
+                        + One-off incoming payments (this + next month): @((Calc.OneOffIncomingThisMonth + Calc.OneOffIncomingNextMonth).ToGBP())<br />
+                        + Unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
+                        + Next month income: @Calc.TotalIncome.ToGBP()<br />
+                        + Unallocated savings: @Calc.UnallocatedSavings.ToGBP()
                     </div>
                 }
             </div>
 
-            <div class="stat-card @(endOfMonthBalanceExcIncome < 0 ? "stat-card--danger" : "stat-card--success")">
-                <div class="stat-label">Bank balance end of this month <b>without</b> income and one-off payments</div>
-                <div class="stat-value">@endOfMonthBalanceExcIncome.ToGBP()</div>
-                <button class="btn btn-sm btn-outline-light mt-1" @onclick="() => _showBreakdownEndOfMonthExcIncome = !_showBreakdownEndOfMonthExcIncome">@(_showBreakdownEndOfMonth ? "Hide breakdown" : "Show breakdown")</button>
+            <!-- END OF MONTH WITHOUT INCOME -->
+            <div class="stat-card @(Calc.EndOfMonthBalanceExcIncome < 0 ? "stat-card--danger" : "stat-card--success")">
+                <div class="stat-label">Bank balance end of this month <b>without</b> income</div>
+                <div class="stat-value">@Calc.EndOfMonthBalanceExcIncome.ToGBP()</div>
+
+                <button class="btn btn-sm btn-outline-light mt-1"
+                        @onclick="() => _showBreakdownEndOfMonthExcIncome = !_showBreakdownEndOfMonthExcIncome">
+                    @(_showBreakdownEndOfMonthExcIncome ? "Hide breakdown" : "Show breakdown")
+                </button>
+
                 @if (_showBreakdownEndOfMonthExcIncome)
                 {
                     <div class="stat-sub" style="margin-top:0.4rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
-                        − Pro-rated budget (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
-                        − Upcoming costs: @Finance.UpcomingCosts.Where(u => u.Date > DateTime.Today).Sum(u => u.Amount).ToGBP()<br />
-                        − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()
+                        − Remaining debits: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − Pro-rated budget: @Calc.ProRatedBudget.ToGBP()<br />
+                        − Upcoming costs: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        − Credit cards: @Calc.CreditCardBalance.ToGBP()
                     </div>
                 }
             </div>
 
-            <div class="stat-card @(endOfMonthBalance < 0 ? "stat-card--danger" : "stat-card--success")">
-                <div class="stat-label">Bank balance end of this month <b>with</b> income and one-off payments</div>
-                <div class="stat-value">@endOfMonthBalance.ToGBP()</div>
-                <button class="btn btn-sm btn-outline-light mt-1" @onclick="() => _showBreakdownEndOfMonth = !_showBreakdownEndOfMonth">@(_showBreakdownEndOfMonth ? "Hide breakdown" : "Show breakdown")</button>
+            <!-- END OF MONTH WITH INCOME -->
+            <div class="stat-card @(Calc.EndOfMonthBalance < 0 ? "stat-card--danger" : "stat-card--success")">
+                <div class="stat-label">Bank balance end of this month <b>with</b> income</div>
+                <div class="stat-value">@Calc.EndOfMonthBalance.ToGBP()</div>
+
+                <button class="btn btn-sm btn-outline-light mt-1"
+                        @onclick="() => _showBreakdownEndOfMonth = !_showBreakdownEndOfMonth">
+                    @(_showBreakdownEndOfMonth ? "Hide breakdown" : "Show breakdown")
+                </button>
+
                 @if (_showBreakdownEndOfMonth)
                 {
                     <div class="stat-sub" style="margin-top:0.4rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
-                        − Pro-rated budget (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()<br />
-                        − Upcoming costs: @Finance.UpcomingCosts.Where(u => u.Date > DateTime.Today).Sum(u => u.Amount).ToGBP()<br />
-                        + One-off incoming payments: @Finance.RemainingOneOffIncomingPayments().ToGBP()<br />
-                        + Unpaid income: @Finance.UnpaidIncome().ToGBP()<br />
-                        − Credit cards: @Finance.TotalCreditCardBalance().ToGBP()
+                        − Remaining debits: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − Pro-rated budget: @Calc.ProRatedBudget.ToGBP()<br />
+                        − Upcoming costs: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        + One-off incoming payments: @Calc.OneOffIncomingThisMonth.ToGBP()<br />
+                        + Unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
+                        − Credit cards: @Calc.CreditCardBalance.ToGBP()
                     </div>
                 }
             </div>
 
+            <!-- ALLOCATED SAVINGS -->
             <div class="stat-card stat-card--muted">
                 <div class="stat-label">Allocated savings commitments</div>
-                <div class="stat-value">@Finance.SavingsSubPots.Sum(p => p.Amount).ToGBP()</div>
-                <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => _showBreakdownNonUnallocated = !_showBreakdownNonUnallocated">@(_showBreakdownNonUnallocated ? "Hide breakdown" : "Show breakdown")</button>
+                <div class="stat-value">@Calc.AllocatedSavings.ToGBP()</div>
+
+                <button class="btn btn-sm btn-outline-secondary mt-1"
+                        @onclick="() => _showBreakdownNonUnallocated = !_showBreakdownNonUnallocated">
+                    @(_showBreakdownNonUnallocated ? "Hide breakdown" : "Show breakdown")
+                </button>
+
                 @if (_showBreakdownNonUnallocated)
                 {
                     <div class="stat-sub" style="margin-top:0.4rem;">
@@ -138,21 +162,32 @@ else
             </div>
         }
 
-
+        <!-- DISPOSABLE INCOME -->
         <div class="stat-card stat-card--muted">
             <div class="stat-label">Disposable income (monthly)</div>
-            <div class="stat-value">@Finance.DisposableIncome().ToGBP()</div>
+            <div class="stat-value">@Calc.DisposableIncome.ToGBP()</div>
+
+            <div class="stat-label" style="font-size:0.95em;margin-bottom:0.2rem;">
+                Income (@Calc.IncomePct%) vs Outgoings (@Calc.OutgoingsPct%)
+            </div>
+
             <div class="stat-sub" style="margin-top:0.4rem;">
-                Total monthly income: @Finance.TotalMonthlyIncome().ToGBP()<br />
-                − Total direct debits: @Finance.TotalMonthlyDirectDebits().ToGBP()<br />
-                − Total monthly budget: @Finance.FullMonthlyBudget().ToGBP()
+                Total monthly income: @Calc.TotalIncome.ToGBP()<br />
+                − Total direct debits: @Calc.TotalDirectDebits.ToGBP()<br />
+                − Total monthly budget: @Calc.TotalBudget.ToGBP()
             </div>
         </div>
 
+        <!-- DIRECT DEBITS -->
         <div class="stat-card">
             <div class="stat-label">Total monthly direct debits</div>
-            <div class="stat-value">@Finance.TotalMonthlyDirectDebits().ToGBP()</div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => _showBreakdownDirectDebits = !_showBreakdownDirectDebits">@(_showBreakdownDirectDebits ? "Hide breakdown" : "Show breakdown")</button>
+            <div class="stat-value">@Calc.TotalDirectDebits.ToGBP()</div>
+
+            <button class="btn btn-sm btn-outline-secondary mt-1"
+                    @onclick="() => _showBreakdownDirectDebits = !_showBreakdownDirectDebits">
+                @(_showBreakdownDirectDebits ? "Hide breakdown" : "Show breakdown")
+            </button>
+
             @if (_showBreakdownDirectDebits)
             {
                 <div class="stat-sub" style="margin-top:0.4rem;">
@@ -164,10 +199,16 @@ else
             }
         </div>
 
+        <!-- REMAINING DEBITS -->
         <div class="stat-card">
             <div class="stat-label">Direct debits remaining this month</div>
-            <div class="stat-value">@Finance.RemainingMonthDirectDebits().ToGBP()</div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => _showBreakdownRemainingDebits = !_showBreakdownRemainingDebits">@(_showBreakdownRemainingDebits ? "Hide breakdown" : "Show breakdown")</button>
+            <div class="stat-value">@Calc.RemainingDirectDebits.ToGBP()</div>
+
+            <button class="btn btn-sm btn-outline-secondary mt-1"
+                    @onclick="() => _showBreakdownRemainingDebits = !_showBreakdownRemainingDebits">
+                @(_showBreakdownRemainingDebits ? "Hide breakdown" : "Show breakdown")
+            </button>
+
             @if (_showBreakdownRemainingDebits)
             {
                 <div class="stat-sub" style="margin-top:0.4rem;">
@@ -180,20 +221,27 @@ else
             }
         </div>
 
+        <!-- REMAINING DEBITS + PRO-RATED BUDGET -->
         <div class="stat-card">
             <div class="stat-label">Remaining debits + pro-rated budget</div>
-            <div class="stat-value">@Finance.RemainingMonthTotal().ToGBP()</div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="() => _showBreakdownProRated = !_showBreakdownProRated">@(_showBreakdownProRated ? "Hide breakdown" : "Show breakdown")</button>
+            <div class="stat-value">@Calc.RemainingDirectDebits.ToGBP()</div>
+
+            <button class="btn btn-sm btn-outline-secondary mt-1"
+                    @onclick="() => _showBreakdownProRated = !_showBreakdownProRated">
+                @(_showBreakdownProRated ? "Hide breakdown" : "Show breakdown")
+            </button>
+
             @if (_showBreakdownProRated)
             {
                 <div class="stat-sub" style="margin-top:0.4rem;">
-                    Remaining debits: @Finance.RemainingMonthDirectDebits().ToGBP()<br />
-                    + Pro-rated budget (@_budgetFractionPercent%): @Finance.ProRatedBudget().ToGBP()
+                    Remaining debits: @Calc.RemainingDirectDebits.ToGBP()<br />
+                    + Pro-rated budget (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()
                 </div>
             }
         </div>
     </div>
 
+    <!-- DIRECT DEBITS LIST -->
     @if (Finance.DirectDebits.Count > 0)
     {
         <h2 class="section-title">Direct Debits</h2>
@@ -209,6 +257,7 @@ else
         </div>
     }
 
+    <!-- BUDGET CATEGORIES -->
     @if (Finance.BudgetCategories.Count > 0)
     {
         <h2 class="section-title">Monthly Budget</h2>
@@ -223,6 +272,7 @@ else
         </div>
     }
 
+    <!-- UPCOMING COSTS -->
     @if (Finance.UpcomingCosts.Count > 0)
     {
         <h2 class="section-title">Upcoming Costs</h2>
@@ -238,6 +288,7 @@ else
         </div>
     }
 
+    <!-- ONE-OFF PAYMENTS -->
     @if (Finance.OneOffPayments.Count > 0)
     {
         <h2 class="section-title">One-Off Incoming Payments</h2>
@@ -253,7 +304,10 @@ else
         </div>
     }
 
-    @if (Finance.DirectDebits.Count == 0 && Finance.BudgetCategories.Count == 0 && Finance.UpcomingCosts.Count == 0 && Finance.OneOffPayments.Count == 0)
+    @if (Finance.DirectDebits.Count == 0 &&
+         Finance.BudgetCategories.Count == 0 &&
+         Finance.UpcomingCosts.Count == 0 &&
+         Finance.OneOffPayments.Count == 0)
     {
         <div class="empty-state">
             <p>No data yet. Use the menu to add direct debits, budget categories, upcoming costs and one-off incoming payments.</p>
@@ -265,28 +319,29 @@ else
     private bool _loaded;
     private string _budgetFractionPercent = "0";
 
-    // Dashboard breakdown toggles
+    private string NextMonthName => DateTime.Today.AddMonths(1).ToString("MMMM");
+
+    // UI toggles
     private bool _showBreakdownDirectDebits;
     private bool _showBreakdownRemainingDebits;
     private bool _showBreakdownProRated;
     private bool _showBreakdownEndOfMonthExcIncome;
     private bool _showBreakdownEndOfMonth;
-    private bool _showBreakdownProjectedWithSavings;
     private bool _showBreakdownNonUnallocated;
     private bool _showBreakdownNextMonth;
     private bool _showBreakdownNextMonthIncIncome;
-    private bool _showBreakdownNextMonthBalance;
-    private bool _showBreakdownRisk;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await Finance.LoadAsync();
+
             var today = DateTime.Today;
             var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
             var remainingDays = daysInMonth - today.Day + 1;
             _budgetFractionPercent = Math.Round((decimal)remainingDays / daysInMonth * 100, 0).ToString();
+
             _loaded = true;
             StateHasChanged();
         }
@@ -294,4 +349,3 @@ else
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
-

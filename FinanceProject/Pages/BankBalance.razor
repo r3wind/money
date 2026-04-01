@@ -1,5 +1,6 @@
 @page "/bank-balance"
 @inject FinanceStateService Finance
+@inject FinanceCalculator Calc
 
 <PageTitle>Bank Balance</PageTitle>
 
@@ -41,15 +42,15 @@ else
             </div>
             <div class="balance-row balance-row--deduct">
                 <span>Remaining direct debits</span>
-                <span class="balance-value">− @Finance.RemainingMonthDirectDebits().ToGBP()</span>
+                <span class="balance-value">− @Calc.RemainingDirectDebits.ToGBP()</span>
             </div>
             <div class="balance-row balance-row--deduct">
                 <span>Pro-rated budget (@_budgetFractionPercent% of monthly)</span>
-                <span class="balance-value">− @Finance.ProRatedBudget().ToGBP()</span>
+                <span class="balance-value">− @Calc.ProRatedBudget.ToGBP()</span>
             </div>
-            <div class="balance-row balance-row--total @(Finance.ProjectedBalance() < 0 ? "balance-row--negative" : "balance-row--positive")">
+            <div class="balance-row balance-row--total @(Calc.EndOfMonthBalance < 0 ? "balance-row--negative" : "balance-row--positive")">
                 <span>Projected remaining balance</span>
-                <span class="balance-value">@Finance.ProjectedBalance().ToGBP()</span>
+                <span class="balance-value">@Calc.EndOfMonthBalance.ToGBP()</span>
             </div>
         </div>
     }

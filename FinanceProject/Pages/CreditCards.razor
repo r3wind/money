@@ -1,5 +1,6 @@
 @page "/credit-cards"
 @inject FinanceStateService Finance
+@inject FinanceCalculator Calc
 
 <PageTitle>Credit Cards</PageTitle>
 
@@ -71,7 +72,7 @@ else
         }
     </div>
     <div class="total-bar">
-        Total outstanding balance: <strong>@Finance.TotalCreditCardBalance().ToGBP()</strong>
+        Total outstanding balance: <strong>@Calc.CreditCardBalance.ToGBP()</strong>
         &nbsp;·&nbsp; this is deducted from your forecast balance
     </div>
 }

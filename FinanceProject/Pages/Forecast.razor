@@ -1,5 +1,6 @@
 @page "/forecast"
 @inject FinanceStateService Finance
+@inject FinanceCalculator Calc
 @implements IAsyncDisposable
 
 <PageTitle>Forecast</PageTitle>
@@ -38,7 +39,7 @@ else
     private MarkupString BuildChart()
     {
         var months = Math.Clamp(_forecastMonths, 1, 120);
-        var data = Finance.GetFutureForecast(months);
+        var data = Calc.GetFutureForecast(months);
         if (data.Count == 0) return (MarkupString)"";
 
         // Compact layout — ~6 bars visible in a ~390px mobile viewport
@@ -86,7 +87,9 @@ else
         // Bars
         for (int i = 0; i < data.Count; i++)
         {
-            var (label, bal) = data[i];
+            var item = data[i];
+            var label = item.Label;
+            var bal = item.Balance;
             var bx = pLeft + i * (barW + barGap);
             var bTop = ToY(Math.Max(0.0, (double)bal));
             var bBot = ToY(Math.Min(0.0, (double)bal));

@@ -15,10 +15,6 @@ public class FinanceStateService
     public List<SavingsSubPot> SavingsSubPots { get; private set; } = [];
     public List<CreditCard> CreditCards { get; private set; } = [];
 
-    public IEnumerable<SavingsPot> RegularSavingsPots()
-    {
-        return SavingsPots;
-    }
     public decimal BankBalance { get; private set; }
 
     public FinanceStateService(FirestoreService firestore)
@@ -26,6 +22,9 @@ public class FinanceStateService
         _firestore = firestore;
     }
 
+    // ---------------------------------------------------------
+    // LOAD / SAVE
+    // ---------------------------------------------------------
     public async Task LoadAsync()
     {
         DirectDebits = await LoadFromStorage<List<DirectDebit>>("finance_directdebits") ?? [];
@@ -45,7 +44,9 @@ public class FinanceStateService
         await SaveToStorage("finance_bankbalance", BankBalance);
     }
 
-    // Direct Debits
+    // ---------------------------------------------------------
+    // DIRECT DEBITS
+    // ---------------------------------------------------------
     public async Task AddDirectDebitAsync(DirectDebit item)
     {
         DirectDebits.Add(item);
@@ -65,7 +66,12 @@ public class FinanceStateService
         await SaveDirectDebitsAsync();
     }
 
-    // Budget Categories
+    private Task SaveDirectDebitsAsync()
+        => SaveToStorage("finance_directdebits", DirectDebits);
+
+    // ---------------------------------------------------------
+    // BUDGET CATEGORIES
+    // ---------------------------------------------------------
     public async Task AddBudgetCategoryAsync(BudgetCategory item)
     {
         BudgetCategories.Add(item);
@@ -85,7 +91,12 @@ public class FinanceStateService
         await SaveBudgetCategoriesAsync();
     }
 
-    // Upcoming Costs
+    private Task SaveBudgetCategoriesAsync()
+        => SaveToStorage("finance_budgetcategories", BudgetCategories);
+
+    // ---------------------------------------------------------
+    // UPCOMING COSTS
+    // ---------------------------------------------------------
     public async Task AddUpcomingCostAsync(UpcomingCost item)
     {
         UpcomingCosts.Add(item);
@@ -105,7 +116,12 @@ public class FinanceStateService
         await SaveUpcomingCostsAsync();
     }
 
-    // One-Off Incoming Payments
+    private Task SaveUpcomingCostsAsync()
+        => SaveToStorage("finance_upcomingcosts", UpcomingCosts);
+
+    // ---------------------------------------------------------
+    // ONE-OFF PAYMENTS
+    // ---------------------------------------------------------
     public async Task AddOneOffPaymentAsync(OneOffPayment item)
     {
         OneOffPayments.Add(item);
@@ -125,265 +141,12 @@ public class FinanceStateService
         await SaveOneOffPaymentsAsync();
     }
 
-    // Savings Pots
-    public async Task AddSavingsPotAsync(SavingsPot pot)
-    {
-        SavingsPots.Add(pot);
-        await SaveSavingsPotsAsync();
-    }
+    private Task SaveOneOffPaymentsAsync()
+        => SaveToStorage("finance_oneoffpayments", OneOffPayments);
 
-    public async Task UpdateSavingsPotAsync(SavingsPot pot)
-    {
-        var idx = SavingsPots.FindIndex(p => p.Name == pot.Name);
-        if (idx >= 0) SavingsPots[idx] = pot;
-        await SaveSavingsPotsAsync();
-    }
-
-    public async Task RemoveSavingsPotAsync(string name)
-    {
-        SavingsPots.RemoveAll(s => s.Name == name);
-        await SaveSavingsPotsAsync();
-    }
-
-    private async Task SaveSavingsPotsAsync()
-    {
-        await SaveToStorage("finance_savingspots", SavingsPots);
-    }
-
-    // Savings Categories
-    public async Task AddSavingsSubPotAsync(SavingsSubPot pot)
-    {
-        SavingsSubPots.Add(pot);
-        await SaveSavingsSubPotsAsync();
-    }
-
-    public async Task UpdateSavingsSubPotAsync(SavingsSubPot pot)
-    {
-        var idx = SavingsSubPots.FindIndex(p => p.Name == pot.Name);
-        if (idx >= 0) SavingsSubPots[idx] = pot;
-        await SaveSavingsSubPotsAsync();
-    }
-
-    public async Task RemoveSavingsSubPotAsync(string name)
-    {
-        SavingsSubPots.RemoveAll(p => p.Name == name);
-        await SaveSavingsSubPotsAsync();
-    }
-
-    private async Task SaveSavingsSubPotsAsync()
-    {
-        await SaveToStorage("finance_savingssubpots", SavingsSubPots);
-    }
-
-    // Credit Cards
-    public async Task AddCreditCardAsync(CreditCard card)
-    {
-        CreditCards.Add(card);
-        await SaveCreditCardsAsync();
-    }
-
-    public async Task UpdateCreditCardAsync(CreditCard card)
-    {
-        var idx = CreditCards.FindIndex(c => c.Id == card.Id);
-        if (idx >= 0) CreditCards[idx] = card;
-        await SaveCreditCardsAsync();
-    }
-
-    public async Task RemoveCreditCardAsync(Guid id)
-    {
-        CreditCards.RemoveAll(c => c.Id == id);
-        await SaveCreditCardsAsync();
-    }
-
-    private async Task SaveCreditCardsAsync()
-        => await SaveToStorage("finance_creditcards", CreditCards);
-
-    public decimal TotalCreditCardBalance()
-        => CreditCards.Sum(c => c.Balance);
-
-    // Dashboard calculations
-    public decimal TotalMonthlyDirectDebits()
-        => DirectDebits.Sum(d => d.Amount);
-
-    public decimal RemainingMonthDirectDebits()
-    {
-        var today = DateTime.Today;
-        return DirectDebits
-            .Where(d => d.DayOfMonth > today.Day)
-            .Sum(d => d.Amount);
-    }
-
-    public decimal ProRatedBudget()
-    {
-        var today = DateTime.Today;
-        var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
-        var remainingDays = daysInMonth - today.Day + 1;
-        var fraction = (decimal)remainingDays / daysInMonth;
-        return BudgetCategories.Sum(b => b.MonthlyAmount) * fraction;
-    }
-
-    public decimal UnpaidIncome()
-        => Incomes.Where(i => !i.PaidThisMonth).Sum(i => i.Amount);
-
-    public decimal TotalMonthlyIncome()
-        => Incomes.Sum(i => i.Amount);
-
-    public decimal DisposableIncome()
-        => TotalMonthlyIncome() - TotalMonthlyDirectDebits() - FullMonthlyBudget();
-
-    public decimal RemainingOneOffIncomingPayments()
-    {
-        var today = DateTime.Today;
-        return OneOffPayments
-            .Where(p => p.Date >= today && p.Date.Year == today.Year && p.Date.Month == today.Month)
-            .Sum(p => p.Amount);
-    }
-
-    public decimal NextMonthOneOffIncomingPayments()
-    {
-        var nextMonth = DateTime.Today.AddMonths(1);
-        return OneOffPayments
-            .Where(p => p.Date.Year == nextMonth.Year && p.Date.Month == nextMonth.Month)
-            .Sum(p => p.Amount);
-    }
-
-    public decimal CurrentAndNextMonthOneOffIncomingPayments()
-    {
-        var today = DateTime.Today;
-        var nextMonth = today.AddMonths(1);
-        return OneOffPayments
-            .Where(p =>
-                (p.Date.Year == today.Year && p.Date.Month == today.Month) ||
-                (p.Date.Year == nextMonth.Year && p.Date.Month == nextMonth.Month))
-            .Sum(p => p.Amount);
-    }
-
-    public decimal RemainingMonthTotal()
-        => RemainingMonthDirectDebits() + ProRatedBudget();
-
-    public decimal ProjectedBalance()
-        => BankBalance
-           - RemainingMonthDirectDebits()
-           - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
-           + RemainingOneOffIncomingPayments()
-           + UnpaidIncome()
-           - TotalCreditCardBalance();
-    public decimal ProjectedBalanceExcIncome()
-        => BankBalance
-           - RemainingMonthDirectDebits()
-           - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
-           - TotalCreditCardBalance();
-
-    public decimal FullMonthlyBudget()
-        => BudgetCategories.Sum(b => b.MonthlyAmount);
-
-    public decimal NextMonthUpcomingCosts()
-    {
-        var nextMonth = DateTime.Today.AddMonths(1);
-        return UpcomingCosts
-            .Where(u => u.Date.Year == nextMonth.Year && u.Date.Month == nextMonth.Month)
-            .Sum(u => u.Amount);
-    }
-
-    public decimal NextMonthDirectDebits()
-    {
-        var nextMonth = DateTime.Today.AddMonths(1);
-        return DirectDebits
-            .Where(d => d.DayOfMonth >= 1 && d.DayOfMonth <= DateTime.DaysInMonth(nextMonth.Year, nextMonth.Month))
-            .Sum(d => d.Amount);
-    }
-
-    public decimal ProjectedBalanceMinusNextMonthBills()
-        => ProjectedBalance()
-           - TotalMonthlyDirectDebits()
-           - FullMonthlyBudget()
-           - NextMonthUpcomingCosts()
-           - TotalCreditCardBalance()
-           + UnallocatedSavings();
-    public decimal UnallocatedSavings()
-        => SavingsPots.Sum(p => p.Amount) - SavingsSubPots.Sum(p => p.Amount);
-
-    public decimal ProjectedBalanceWithSavings()
-        => ProjectedBalance() + SavingsPots.Sum(s => s.Amount);
-
-    public decimal ProjectedBalanceWithoutSavings()
-        => ProjectedBalance();
-
-    public decimal NextMonthForecastAfterBills()
-        => BankBalance
-           - RemainingMonthDirectDebits()
-           - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
-           - NextMonthDirectDebits()
-           - FullMonthlyBudget()
-           - NextMonthUpcomingCosts()
-           - TotalCreditCardBalance()
-           + CurrentAndNextMonthOneOffIncomingPayments()
-           + UnpaidIncome()
-           + UnallocatedSavings();
-
-    public decimal NextMonthForecastAfterBillsIncomingNextMonthIncome()
-        => BankBalance
-           - RemainingMonthDirectDebits()
-           - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
-           - NextMonthDirectDebits()
-           - FullMonthlyBudget()
-           - NextMonthUpcomingCosts()
-           - TotalCreditCardBalance()
-           + CurrentAndNextMonthOneOffIncomingPayments()
-           + UnpaidIncome()
-           + TotalMonthlyIncome()
-           + UnallocatedSavings();
-
-    public decimal NextMonthForecastAfterBillsExcludingSavings()
-        => BankBalance
-           - RemainingMonthDirectDebits()
-           - ProRatedBudget()
-           - UpcomingCosts.Where(u => u.Date > DateTime.Today && u.Date < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1)).Sum(u => u.Amount)
-           - NextMonthDirectDebits()
-           - FullMonthlyBudget()
-           - NextMonthUpcomingCosts()
-           - TotalCreditCardBalance();
-
-    public List<(string Label, decimal Balance)> GetFutureForecast(int months)
-    {
-        if (months <= 0) return [];
-
-        var result = new List<(string Label, decimal Balance)>(months);
-        var totalMonthlyIncome = Incomes.Sum(i => i.Amount);
-
-        // Month 1 uses the same logic as the "Forecast after next month's bills" card
-        decimal balance = NextMonthForecastAfterBills();
-        result.Add((DateTime.Today.AddMonths(1).ToString("MMM yyyy"), balance));
-
-        // Subsequent months: rolling projection (recurring debits, budget, income; one-off upcoming costs per month)
-        for (int m = 2; m <= months; m++)
-        {
-            var refDate = DateTime.Today.AddMonths(m);
-            var upcomingForMonth = UpcomingCosts
-                .Where(u => u.Date.Year == refDate.Year && u.Date.Month == refDate.Month)
-                .Sum(u => u.Amount);
-            var oneOffIncomingForMonth = OneOffPayments
-                .Where(p => p.Date.Year == refDate.Year && p.Date.Month == refDate.Month)
-                .Sum(p => p.Amount);
-
-            balance = balance
-                - TotalMonthlyDirectDebits()
-                - FullMonthlyBudget()
-                - upcomingForMonth
-                + oneOffIncomingForMonth
-                + totalMonthlyIncome;
-
-            result.Add((refDate.ToString("MMM yyyy"), balance));
-        }
-
-        return result;
-    }
-
-
+    // ---------------------------------------------------------
+    // INCOME
+    // ---------------------------------------------------------
     public async Task AddIncomeAsync(Income item)
     {
         Incomes.Add(item);
@@ -410,21 +173,87 @@ public class FinanceStateService
         await SaveIncomesAsync();
     }
 
-    private async Task SaveDirectDebitsAsync()
-        => await SaveToStorage("finance_directdebits", DirectDebits);
+    private Task SaveIncomesAsync()
+        => SaveToStorage("finance_incomes", Incomes);
 
-    private async Task SaveBudgetCategoriesAsync()
-        => await SaveToStorage("finance_budgetcategories", BudgetCategories);
+    // ---------------------------------------------------------
+    // SAVINGS POTS
+    // ---------------------------------------------------------
+    public async Task AddSavingsPotAsync(SavingsPot pot)
+    {
+        SavingsPots.Add(pot);
+        await SaveSavingsPotsAsync();
+    }
 
-    private async Task SaveUpcomingCostsAsync()
-        => await SaveToStorage("finance_upcomingcosts", UpcomingCosts);
+    public async Task UpdateSavingsPotAsync(SavingsPot pot)
+    {
+        var idx = SavingsPots.FindIndex(p => p.Name == pot.Name);
+        if (idx >= 0) SavingsPots[idx] = pot;
+        await SaveSavingsPotsAsync();
+    }
 
-    private async Task SaveOneOffPaymentsAsync()
-        => await SaveToStorage("finance_oneoffpayments", OneOffPayments);
+    public async Task RemoveSavingsPotAsync(string name)
+    {
+        SavingsPots.RemoveAll(s => s.Name == name);
+        await SaveSavingsPotsAsync();
+    }
 
-    private async Task SaveIncomesAsync()
-        => await SaveToStorage("finance_incomes", Incomes);
+    private Task SaveSavingsPotsAsync()
+        => SaveToStorage("finance_savingspots", SavingsPots);
 
+    // ---------------------------------------------------------
+    // SAVINGS SUB-POTS
+    // ---------------------------------------------------------
+    public async Task AddSavingsSubPotAsync(SavingsSubPot pot)
+    {
+        SavingsSubPots.Add(pot);
+        await SaveSavingsSubPotsAsync();
+    }
+
+    public async Task UpdateSavingsSubPotAsync(SavingsSubPot pot)
+    {
+        var idx = SavingsSubPots.FindIndex(p => p.Name == pot.Name);
+        if (idx >= 0) SavingsSubPots[idx] = pot;
+        await SaveSavingsSubPotsAsync();
+    }
+
+    public async Task RemoveSavingsSubPotAsync(string name)
+    {
+        SavingsSubPots.RemoveAll(p => p.Name == name);
+        await SaveSavingsSubPotsAsync();
+    }
+
+    private Task SaveSavingsSubPotsAsync()
+        => SaveToStorage("finance_savingssubpots", SavingsSubPots);
+
+    // ---------------------------------------------------------
+    // CREDIT CARDS
+    // ---------------------------------------------------------
+    public async Task AddCreditCardAsync(CreditCard card)
+    {
+        CreditCards.Add(card);
+        await SaveCreditCardsAsync();
+    }
+
+    public async Task UpdateCreditCardAsync(CreditCard card)
+    {
+        var idx = CreditCards.FindIndex(c => c.Id == card.Id);
+        if (idx >= 0) CreditCards[idx] = card;
+        await SaveCreditCardsAsync();
+    }
+
+    public async Task RemoveCreditCardAsync(Guid id)
+    {
+        CreditCards.RemoveAll(c => c.Id == id);
+        await SaveCreditCardsAsync();
+    }
+
+    private Task SaveCreditCardsAsync()
+        => SaveToStorage("finance_creditcards", CreditCards);
+
+    // ---------------------------------------------------------
+    // STORAGE HELPERS
+    // ---------------------------------------------------------
     private async Task SaveToStorage<T>(string key, T value)
         => await _firestore.SaveAsync(key, value);
 
