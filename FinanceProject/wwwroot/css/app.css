@@ -65,6 +65,11 @@ a, .btn-link {
     color: #e5e7eb;
 }
 
+/* Improve muted text contrast on dark theme surfaces */
+.text-muted {
+    color: #cbd5e1 !important;
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }

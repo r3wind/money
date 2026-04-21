@@ -223,10 +223,10 @@ else
             }
         </div>
 
-        <!-- REMAINING DEBITS + PRO-RATED BUDGET -->
+        <!-- REMAINING DEBITS + PRO-RATED BUDGET THIS MONTH -->
         <div class="stat-card">
-            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">🧭</span> Remaining debits + pro-rated budget</div>
-            <div class="stat-value">@Calc.RemainingDirectDebits.ToGBP()</div>
+            <div class="stat-label stat-label--with-icon"><span class="stat-label__icon">🧭</span> Remaining debits + pro-rated budget this month</div>
+            <div class="stat-value">@((Calc.RemainingDirectDebits + Calc.ProRatedBudget).ToGBP())</div>
 
             <button class="btn btn-sm btn-outline-secondary mt-1"
                     @onclick="() => _showBreakdownProRated = !_showBreakdownProRated">

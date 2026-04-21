@@ -1,5 +1,6 @@
 @page "/savings"
 @inject FinanceStateService Finance
+@using System.Globalization
 
 <PageTitle>Savings Pots</PageTitle>
 
@@ -27,6 +28,11 @@
                 <label class="form-label">Balance (£)</label>
                 <InputNumber class="form-control" @bind-Value="_accountForm.Amount" />
                 <ValidationMessage For="() => _accountForm.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">AER (%)</label>
+                <InputNumber class="form-control" @bind-Value="_accountForm.Aer" />
+                <ValidationMessage For="() => _accountForm.Aer" />
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" disabled="@_saving">
@@ -60,6 +66,10 @@ else
                     <span class="item-card__name">@pot.Name</span>
                     <span class="item-card__amount">@pot.Amount.ToGBP()</span>
                 </div>
+                    @if (pot.Aer > 0)
+                    {
+                        <div class="item-card__meta">AER: @pot.Aer.ToString("0.##")% · Daily interest: @ToGBP3(CalculateDailyInterest(pot))</div>
+                    }
                 <div class="item-card__actions">
                     <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditAccountForm(pot)">Edit</button>
                     <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemoveAccount(pot.Name)">Remove</button>
@@ -194,6 +204,8 @@ else
     private string? _editingPotName;
     private SavingsSubPot _potForm = new();
 
+    private static readonly CultureInfo _gbpCulture = new("en-GB");
+
     private string? _confirmRemoveAccountName;
     private string? _confirmRemovePotName;
 
@@ -219,7 +231,7 @@ else
 
     private void OpenEditAccountForm(SavingsPot pot)
     {
-        _accountForm = new SavingsPot { Name = pot.Name, Amount = pot.Amount };
+        _accountForm = new SavingsPot { Name = pot.Name, Amount = pot.Amount, Aer = pot.Aer };
         _editingAccountName = pot.Name;
         _showAccountForm = true;
         _showPotForm = false;
@@ -252,6 +264,17 @@ else
         _saving = false;
         StateHasChanged();
     }
+
+    private static decimal CalculateDailyInterest(SavingsPot pot)
+    {
+        if (pot.Amount <= 0 || pot.Aer <= 0)
+            return 0;
+
+        var dailyRate = Math.Pow((double)(1m + (pot.Aer / 100m)), 1d / 365d) - 1d;
+        return decimal.Round(pot.Amount * (decimal)dailyRate, 3, MidpointRounding.AwayFromZero);
+    }
+
+    private static string ToGBP3(decimal value) => value.ToString("C3", _gbpCulture);
 
     // ── Savings Pot methods ──────────────────────────────────
 
