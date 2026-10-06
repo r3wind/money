@@ -8,36 +8,9 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Credit Card</button>
 
-@if (_showForm)
+@if (_showForm && _editingId == null)
 {
-    <div class="form-card">
-        <h2 class="form-card__title">@(_editingId == null ? "Add Credit Card" : "Edit Credit Card")</h2>
-        <EditForm Model="_form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <div class="mb-3">
-                <label class="form-label">Card Name</label>
-                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Barclaycard" />
-                <ValidationMessage For="() => _form.Name" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Credit Limit (£)</label>
-                <InputNumber class="form-control" @bind-Value="_form.Limit" />
-                <ValidationMessage For="() => _form.Limit" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Available Credit (£)</label>
-                <InputNumber class="form-control" @bind-Value="_form.AvailableCredit" />
-                <ValidationMessage For="() => _form.AvailableCredit" />
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
+    @EditorForm
 }
 
 @if (!_loaded)
@@ -56,18 +29,27 @@ else
     <div class="item-list">
         @foreach (var card in Finance.CreditCards)
         {
-            <div class="item-card">
-                <div class="item-card__header">
-                    <span class="item-card__name">@card.Name</span>
-                    <span class="item-card__amount">@card.Balance.ToGBP() to pay</span>
-                </div>
-                <div class="item-card__meta">
-                    Limit @card.Limit.ToGBP() &nbsp;·&nbsp; Available @card.AvailableCredit.ToGBP()
-                </div>
-                <div class="item-card__actions">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(card)">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(card.Id)">Remove</button>
-                </div>
+            <div @key="card.Id">
+                @if (_showForm && _editingId == card.Id)
+                {
+                    @EditorForm
+                }
+                else
+                {
+                    <div class="item-card">
+                        <div class="item-card__header">
+                            <span class="item-card__name">@card.Name</span>
+                            <span class="item-card__amount">@card.Balance.ToGBP() to pay</span>
+                        </div>
+                        <div class="item-card__meta">
+                            Limit @card.Limit.ToGBP() &nbsp;·&nbsp; Available @card.AvailableCredit.ToGBP()
+                        </div>
+                        <div class="item-card__actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(card)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(card.Id)">Remove</button>
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -101,6 +83,35 @@ else
     private Guid? _confirmRemoveId;
 
     private CreditCard _form = new();
+
+    private RenderFragment EditorForm => @<div class="form-card" @key="_form">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Credit Card" : "Edit Credit Card")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Card Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Barclaycard" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Credit Limit (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.Limit" />
+                <ValidationMessage For="() => _form.Limit" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Available Credit (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.AvailableCredit" />
+                <ValidationMessage For="() => _form.AvailableCredit" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

@@ -8,35 +8,9 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Income</button>
 
-@if (_showForm)
+@if (_showForm && _editingId == null)
 {
-    <div class="form-card">
-        <h2 class="form-card__title">@(_editingId == null ? "Add Income" : "Edit Income")</h2>
-        <EditForm Model="_form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <div class="mb-3">
-                <label class="form-label">Name</label>
-                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Salary, Pension" />
-                <ValidationMessage For="() => _form.Name" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Monthly Amount (&pound;)</label>
-                <InputNumber class="form-control" @bind-Value="_form.Amount" />
-                <ValidationMessage For="() => _form.Amount" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Details (optional)</label>
-                <InputTextArea class="form-control" @bind-Value="_form.Details" rows="2" />
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
+    @EditorForm
 }
 
 @if (!_loaded)
@@ -55,27 +29,36 @@ else
     <div class="item-list">
         @foreach (var inc in Finance.Incomes)
         {
-            <div class="item-card">
-                <div class="item-card__header">
-                    <span class="item-card__name">@inc.Name</span>
-                    <span class="item-card__amount">@inc.Amount.ToGBP()</span>
-                </div>
-                <!-- Removed Day of Month meta -->
-                @if (!string.IsNullOrWhiteSpace(inc.Details))
+            <div @key="inc.Id">
+                @if (_showForm && _editingId == inc.Id)
                 {
-                    <div class="item-card__details">@inc.Details</div>
+                    @EditorForm
                 }
-                <div class="item-card__actions">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(inc)">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(inc.Id)">Remove</button>
-                    <button class="btn btn-sm btn-outline-success" @onclick="() => TogglePaidAsync(inc)" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                        @((inc.PaidThisMonth ? "Mark unpaid" : "Mark paid"))
-                    </button>
-                </div>
-                <div class="item-card__meta">
-                    <span class="badge @(inc.PaidThisMonth ? "bg-success" : "bg-warning")">@((inc.PaidThisMonth ? "Paid" : "Unpaid"))</span>
-                </div>
+                else
+                {
+                    <div class="item-card">
+                        <div class="item-card__header">
+                            <span class="item-card__name">@inc.Name</span>
+                            <span class="item-card__amount">@inc.Amount.ToGBP()</span>
+                        </div>
+                        <!-- Removed Day of Month meta -->
+                        @if (!string.IsNullOrWhiteSpace(inc.Details))
+                        {
+                            <div class="item-card__details">@inc.Details</div>
+                        }
+                        <div class="item-card__actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(inc)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(inc.Id)">Remove</button>
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => TogglePaidAsync(inc)" disabled="@_saving">
+                                @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                                @((inc.PaidThisMonth ? "Mark unpaid" : "Mark paid"))
+                            </button>
+                        </div>
+                        <div class="item-card__meta">
+                            <span class="badge @(inc.PaidThisMonth ? "bg-success" : "bg-warning")">@((inc.PaidThisMonth ? "Paid" : "Unpaid"))</span>
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -105,6 +88,34 @@ else
     private Guid? _confirmRemoveId;
 
     private IncomeModel _form = new();
+
+    private RenderFragment EditorForm => @<div class="form-card" @key="_form">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Income" : "Edit Income")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Salary, Pension" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly Amount (&pound;)</label>
+                <InputNumber class="form-control" @bind-Value="_form.Amount" />
+                <ValidationMessage For="() => _form.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Details (optional)</label>
+                <InputTextArea class="form-control" @bind-Value="_form.Details" rows="2" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

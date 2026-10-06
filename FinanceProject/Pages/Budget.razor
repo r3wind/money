@@ -7,31 +7,9 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenAddForm">+ Add Category</button>
 
-@if (_showForm)
+@if (_showForm && _editingId == null)
 {
-    <div class="form-card">
-        <h2 class="form-card__title">@(_editingId == null ? "Add Budget Category" : "Edit Budget Category")</h2>
-        <EditForm Model="_form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <div class="mb-3">
-                <label class="form-label">Category Name</label>
-                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Food, Petrol" />
-                <ValidationMessage For="() => _form.Name" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Monthly Amount (£)</label>
-                <InputNumber class="form-control" @bind-Value="_form.MonthlyAmount" />
-                <ValidationMessage For="() => _form.MonthlyAmount" />
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
+    @EditorForm
 }
 
 @if (!_loaded)
@@ -50,15 +28,24 @@ else
     <div class="item-list">
         @foreach (var cat in Finance.BudgetCategories)
         {
-            <div class="item-card">
-                <div class="item-card__header">
-                    <span class="item-card__name">@cat.Name</span>
-                    <span class="item-card__amount">@cat.MonthlyAmount.ToGBP()</span>
-                </div>
-                <div class="item-card__actions">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(cat)">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(cat.Id)">Remove</button>
-                </div>
+            <div @key="cat.Id">
+                @if (_showForm && _editingId == cat.Id)
+                {
+                    @EditorForm
+                }
+                else
+                {
+                    <div class="item-card">
+                        <div class="item-card__header">
+                            <span class="item-card__name">@cat.Name</span>
+                            <span class="item-card__amount">@cat.MonthlyAmount.ToGBP()</span>
+                        </div>
+                        <div class="item-card__actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditForm(cat)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemove(cat.Id)">Remove</button>
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -91,6 +78,30 @@ else
     private Guid? _confirmRemoveId;
 
     private BudgetCategory _form = new();
+
+    private RenderFragment EditorForm => @<div class="form-card" @key="_form">
+        <h2 class="form-card__title">@(_editingId == null ? "Add Budget Category" : "Edit Budget Category")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Category Name</label>
+                <InputText class="form-control" @bind-Value="_form.Name" placeholder="e.g. Food, Petrol" />
+                <ValidationMessage For="() => _form.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_form.MonthlyAmount" />
+                <ValidationMessage For="() => _form.MonthlyAmount" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

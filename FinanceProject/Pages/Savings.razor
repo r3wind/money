@@ -13,36 +13,9 @@
 
 <button class="btn btn-primary mb-3" @onclick="OpenAddAccountForm">+ Add Account</button>
 
-@if (_showAccountForm)
+@if (_showAccountForm && _editingAccountName == null)
 {
-    <div class="form-card">
-        <h2 class="form-card__title">@(_editingAccountName == null ? "Add Savings Account" : "Edit Savings Account")</h2>
-        <EditForm Model="_accountForm" OnValidSubmit="SaveAccountAsync">
-            <DataAnnotationsValidator />
-            <div class="mb-3">
-                <label class="form-label">Account Name</label>
-                <InputText class="form-control" @bind-Value="_accountForm.Name" placeholder="e.g. Richard ISA" />
-                <ValidationMessage For="() => _accountForm.Name" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Balance (£)</label>
-                <InputNumber class="form-control" @bind-Value="_accountForm.Amount" />
-                <ValidationMessage For="() => _accountForm.Amount" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">AER (%)</label>
-                <InputNumber class="form-control" @bind-Value="_accountForm.Aer" />
-                <ValidationMessage For="() => _accountForm.Aer" />
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelAccountForm" disabled="@_saving">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
+    @AccountEditorForm
 }
 
 @if (!_loaded)
@@ -61,19 +34,28 @@ else
     <div class="item-list">
         @foreach (var pot in Finance.SavingsPots)
         {
-            <div class="item-card">
-                <div class="item-card__header">
-                    <span class="item-card__name">@pot.Name</span>
-                    <span class="item-card__amount">@pot.Amount.ToGBP()</span>
-                </div>
-                    @if (pot.Aer > 0)
-                    {
-                        <div class="item-card__meta">AER: @pot.Aer.ToString("0.##")% · Daily interest: @ToGBP3(CalculateDailyInterest(pot))</div>
-                    }
-                <div class="item-card__actions">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditAccountForm(pot)">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemoveAccount(pot.Name)">Remove</button>
-                </div>
+            <div @key="pot">
+                @if (_showAccountForm && ReferenceEquals(_editingAccount, pot))
+                {
+                    @AccountEditorForm
+                }
+                else
+                {
+                    <div class="item-card">
+                        <div class="item-card__header">
+                            <span class="item-card__name">@pot.Name</span>
+                            <span class="item-card__amount">@pot.Amount.ToGBP()</span>
+                        </div>
+                            @if (pot.Aer > 0)
+                            {
+                                <div class="item-card__meta">AER: @pot.Aer.ToString("0.##")% · Daily interest: @ToGBP3(CalculateDailyInterest(pot))</div>
+                            }
+                        <div class="item-card__actions">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditAccountForm(pot)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemoveAccount(pot.Name)">Remove</button>
+                        </div>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -89,37 +71,9 @@ else
 
 <button class="btn btn-primary mb-3" @onclick="OpenAddPotForm">+ Add Pot</button>
 
-@if (_showPotForm)
+@if (_showPotForm && _editingPotName == null)
 {
-    <div class="form-card">
-        <h2 class="form-card__title">@(_editingPotName == null ? "Add Savings Pot" : "Edit Savings Pot")</h2>
-        <EditForm Model="_potForm" OnValidSubmit="SavePotAsync">
-            <DataAnnotationsValidator />
-            <div class="mb-3">
-                <label class="form-label">Pot Name</label>
-                <InputText class="form-control" @bind-Value="_potForm.Name" placeholder="e.g. Kids Savings" />
-                <ValidationMessage For="() => _potForm.Name" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Amount (£)</label>
-                <InputNumber class="form-control" @bind-Value="_potForm.Amount" />
-                <ValidationMessage For="() => _potForm.Amount" />
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Monthly contribution (£)</label>
-                <InputNumber class="form-control" @bind-Value="_potForm.MonthlyContribution" min="0" />
-                <ValidationMessage For="() => _potForm.MonthlyContribution" />
-                <div class="form-text">Allocated from unallocated savings on the first of each month, starting next month when enabled. Missed months are caught up when you open the app. Set to £0 to disable. Account balances are unchanged.</div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_saving">
-                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelPotForm" disabled="@_saving">Cancel</button>
-            </div>
-        </EditForm>
-    </div>
+    @PotEditorForm
 }
 
 @if (_loaded)
@@ -133,19 +87,28 @@ else
         <div class="item-list">
             @foreach (var pot in Finance.SavingsSubPots)
             {
-                <div class="item-card">
-                    <div class="item-card__header">
-                        <span class="item-card__name">@pot.Name</span>
-                        <span class="item-card__amount">@pot.Amount.ToGBP()</span>
-                    </div>
-                    @if (pot.MonthlyContribution > 0)
+                <div @key="pot.Id">
+                    @if (_showPotForm && _editingPotName != null && _potForm.Id == pot.Id)
                     {
-                        <div class="item-card__meta">Monthly contribution: @pot.MonthlyContribution.ToGBP() · Due on the 1st</div>
+                        @PotEditorForm
                     }
-                    <div class="item-card__actions">
-                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditPotForm(pot)">Edit</button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemovePot(pot.Name)">Remove</button>
-                    </div>
+                    else
+                    {
+                        <div class="item-card">
+                            <div class="item-card__header">
+                                <span class="item-card__name">@pot.Name</span>
+                                <span class="item-card__amount">@pot.Amount.ToGBP()</span>
+                            </div>
+                            @if (pot.MonthlyContribution > 0)
+                            {
+                                <div class="item-card__meta">Monthly contribution: @pot.MonthlyContribution.ToGBP() · Due on the 1st</div>
+                            }
+                            <div class="item-card__actions">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditPotForm(pot)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemovePot(pot.Name)">Remove</button>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -208,6 +171,7 @@ else
 
     private bool _showAccountForm;
     private string? _editingAccountName;
+    private SavingsPot? _editingAccount;
     private SavingsPot _accountForm = new();
 
     private bool _showPotForm;
@@ -218,6 +182,65 @@ else
 
     private string? _confirmRemoveAccountName;
     private string? _confirmRemovePotName;
+
+    private RenderFragment AccountEditorForm => @<div class="form-card" @key="_accountForm">
+        <h2 class="form-card__title">@(_editingAccountName == null ? "Add Savings Account" : "Edit Savings Account")</h2>
+        <EditForm Model="_accountForm" OnValidSubmit="SaveAccountAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Account Name</label>
+                <InputText class="form-control" @bind-Value="_accountForm.Name" placeholder="e.g. Richard ISA" />
+                <ValidationMessage For="() => _accountForm.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Balance (£)</label>
+                <InputNumber class="form-control" @bind-Value="_accountForm.Amount" />
+                <ValidationMessage For="() => _accountForm.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">AER (%)</label>
+                <InputNumber class="form-control" @bind-Value="_accountForm.Aer" />
+                <ValidationMessage For="() => _accountForm.Aer" />
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelAccountForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>;
+
+    private RenderFragment PotEditorForm => @<div class="form-card" @key="_potForm">
+        <h2 class="form-card__title">@(_editingPotName == null ? "Add Savings Pot" : "Edit Savings Pot")</h2>
+        <EditForm Model="_potForm" OnValidSubmit="SavePotAsync">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Pot Name</label>
+                <InputText class="form-control" @bind-Value="_potForm.Name" placeholder="e.g. Kids Savings" />
+                <ValidationMessage For="() => _potForm.Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Amount (£)</label>
+                <InputNumber class="form-control" @bind-Value="_potForm.Amount" />
+                <ValidationMessage For="() => _potForm.Amount" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly contribution (£)</label>
+                <InputNumber class="form-control" @bind-Value="_potForm.MonthlyContribution" min="0" />
+                <ValidationMessage For="() => _potForm.MonthlyContribution" />
+                <div class="form-text">Allocated from unallocated savings on the first of each month, starting next month when enabled. Missed months are caught up when you open the app. Set to £0 to disable. Account balances are unchanged.</div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
+                    Save
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelPotForm" disabled="@_saving">Cancel</button>
+            </div>
+        </EditForm>
+    </div>;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -235,6 +258,7 @@ else
     {
         _accountForm = new SavingsPot();
         _editingAccountName = null;
+        _editingAccount = null;
         _showAccountForm = true;
         _showPotForm = false;
     }
@@ -243,6 +267,7 @@ else
     {
         _accountForm = new SavingsPot { Name = pot.Name, Amount = pot.Amount, Aer = pot.Aer };
         _editingAccountName = pot.Name;
+        _editingAccount = pot;
         _showAccountForm = true;
         _showPotForm = false;
     }
