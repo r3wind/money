@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FinanceProject.Models;
 
 namespace FinanceProject.Services;
@@ -5,6 +6,7 @@ namespace FinanceProject.Services;
 public class FinanceStateService
 {
     private readonly FirestoreService _firestore;
+    private readonly TimeProvider _timeProvider;
 
     public List<DirectDebit> DirectDebits { get; private set; } = [];
     public List<BudgetCategory> BudgetCategories { get; private set; } = [];
@@ -17,9 +19,10 @@ public class FinanceStateService
 
     public decimal BankBalance { get; private set; }
 
-    public FinanceStateService(FirestoreService firestore)
+    public FinanceStateService(FirestoreService firestore, TimeProvider? timeProvider = null)
     {
         _firestore = firestore;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     // ---------------------------------------------------------
@@ -36,6 +39,23 @@ public class FinanceStateService
         SavingsSubPots = await LoadFromStorage<List<SavingsSubPot>>("finance_savingssubpots") ?? [];
         CreditCards = await LoadFromStorage<List<CreditCard>>("finance_creditcards") ?? [];
         BankBalance = await LoadFromStorage<decimal>("finance_bankbalance");
+
+        var today = DateOnly.FromDateTime(_timeProvider.GetLocalNow().DateTime);
+        var savingsPotsChanged = false;
+        var potIds = new HashSet<Guid>();
+        foreach (var pot in SavingsSubPots)
+        {
+            if (pot.Id == Guid.Empty || !potIds.Add(pot.Id))
+            {
+                pot.Id = Guid.NewGuid();
+                potIds.Add(pot.Id);
+                savingsPotsChanged = true;
+            }
+            savingsPotsChanged |= pot.ApplyMonthlyContributions(today);
+        }
+
+        if (savingsPotsChanged)
+            await SaveSavingsSubPotsAsync();
     }
 
     public async Task SetBankBalanceAsync(decimal amount)
@@ -99,12 +119,14 @@ public class FinanceStateService
     // ---------------------------------------------------------
     public async Task AddUpcomingCostAsync(UpcomingCost item)
     {
+        ValidateSavingsPotLink(item);
         UpcomingCosts.Add(item);
         await SaveUpcomingCostsAsync();
     }
 
     public async Task UpdateUpcomingCostAsync(UpcomingCost item)
     {
+        ValidateSavingsPotLink(item);
         var idx = UpcomingCosts.FindIndex(u => u.Id == item.Id);
         if (idx >= 0) UpcomingCosts[idx] = item;
         await SaveUpcomingCostsAsync();
@@ -118,6 +140,18 @@ public class FinanceStateService
 
     private Task SaveUpcomingCostsAsync()
         => SaveToStorage("finance_upcomingcosts", UpcomingCosts);
+
+    private void ValidateSavingsPotLink(UpcomingCost item)
+    {
+        if (item.SavingsPotId is not { } potId)
+            return;
+
+        if (potId == Guid.Empty || !SavingsSubPots.Any(p => p.Id == potId))
+            throw new ValidationException("The selected savings pot no longer exists. Choose another pot or no pot.");
+
+        if (UpcomingCosts.Any(u => u.Id != item.Id && u.SavingsPotId == potId))
+            throw new ValidationException("This savings pot is already linked to another upcoming cost.");
+    }
 
     // ---------------------------------------------------------
     // ONE-OFF PAYMENTS
@@ -206,21 +240,52 @@ public class FinanceStateService
     // ---------------------------------------------------------
     public async Task AddSavingsSubPotAsync(SavingsSubPot pot)
     {
+        if (pot.Id == Guid.Empty || SavingsSubPots.Any(p => p.Id == pot.Id))
+            pot.Id = Guid.NewGuid();
+        var today = DateOnly.FromDateTime(_timeProvider.GetLocalNow().DateTime);
+        pot.LastContributionMonth = pot.MonthlyContribution > 0
+            ? new DateOnly(today.Year, today.Month, 1)
+            : null;
         SavingsSubPots.Add(pot);
         await SaveSavingsSubPotsAsync();
     }
 
-    public async Task UpdateSavingsSubPotAsync(SavingsSubPot pot)
+    public async Task UpdateSavingsSubPotAsync(SavingsSubPot pot, string? originalName = null)
     {
-        var idx = SavingsSubPots.FindIndex(p => p.Name == pot.Name);
-        if (idx >= 0) SavingsSubPots[idx] = pot;
+        var idx = pot.Id != Guid.Empty
+            ? SavingsSubPots.FindIndex(p => p.Id == pot.Id)
+            : SavingsSubPots.FindIndex(p => p.Name == (originalName ?? pot.Name));
+        if (idx >= 0)
+        {
+            var existing = SavingsSubPots[idx];
+            pot.Id = existing.Id;
+            var today = DateOnly.FromDateTime(_timeProvider.GetLocalNow().DateTime);
+            var previousAmount = existing.Amount;
+            existing.ApplyMonthlyContributions(today);
+            if (!ReferenceEquals(existing, pot))
+                pot.Amount += existing.Amount - previousAmount;
+
+            pot.LastContributionMonth = pot.MonthlyContribution <= 0
+                ? null
+                : existing.MonthlyContribution <= 0
+                    ? new DateOnly(today.Year, today.Month, 1)
+                    : existing.LastContributionMonth;
+            SavingsSubPots[idx] = pot;
+        }
         await SaveSavingsSubPotsAsync();
     }
 
     public async Task RemoveSavingsSubPotAsync(string name)
     {
+        var removedIds = SavingsSubPots.Where(p => p.Name == name).Select(p => p.Id).ToHashSet();
         SavingsSubPots.RemoveAll(p => p.Name == name);
         await SaveSavingsSubPotsAsync();
+
+        var linkedCosts = UpcomingCosts.Where(u => u.SavingsPotId is { } id && removedIds.Contains(id)).ToList();
+        foreach (var cost in linkedCosts)
+            cost.SavingsPotId = null;
+        if (linkedCosts.Count > 0)
+            await SaveUpcomingCostsAsync();
     }
 
     private Task SaveSavingsSubPotsAsync()

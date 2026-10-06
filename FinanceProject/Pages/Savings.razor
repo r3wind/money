@@ -105,6 +105,12 @@ else
                 <InputNumber class="form-control" @bind-Value="_potForm.Amount" />
                 <ValidationMessage For="() => _potForm.Amount" />
             </div>
+            <div class="mb-3">
+                <label class="form-label">Monthly contribution (£)</label>
+                <InputNumber class="form-control" @bind-Value="_potForm.MonthlyContribution" min="0" />
+                <ValidationMessage For="() => _potForm.MonthlyContribution" />
+                <div class="form-text">Allocated from unallocated savings on the first of each month, starting next month when enabled. Missed months are caught up when you open the app. Set to £0 to disable. Account balances are unchanged.</div>
+            </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary" disabled="@_saving">
                     @if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> }
@@ -132,6 +138,10 @@ else
                         <span class="item-card__name">@pot.Name</span>
                         <span class="item-card__amount">@pot.Amount.ToGBP()</span>
                     </div>
+                    @if (pot.MonthlyContribution > 0)
+                    {
+                        <div class="item-card__meta">Monthly contribution: @pot.MonthlyContribution.ToGBP() · Due on the 1st</div>
+                    }
                     <div class="item-card__actions">
                         <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditPotForm(pot)">Edit</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmRemovePot(pot.Name)">Remove</button>
@@ -288,7 +298,14 @@ else
 
     private void OpenEditPotForm(SavingsSubPot pot)
     {
-        _potForm = new SavingsSubPot { Name = pot.Name, Amount = pot.Amount };
+        _potForm = new SavingsSubPot
+        {
+            Id = pot.Id,
+            Name = pot.Name,
+            Amount = pot.Amount,
+            MonthlyContribution = pot.MonthlyContribution,
+            LastContributionMonth = pot.LastContributionMonth
+        };
         _editingPotName = pot.Name;
         _showPotForm = true;
         _showAccountForm = false;
@@ -302,7 +319,7 @@ else
         if (_editingPotName == null)
             await Finance.AddSavingsSubPotAsync(_potForm);
         else
-            await Finance.UpdateSavingsSubPotAsync(_potForm);
+            await Finance.UpdateSavingsSubPotAsync(_potForm, _editingPotName);
         _saving = false;
         _showPotForm = false;
         StateHasChanged();

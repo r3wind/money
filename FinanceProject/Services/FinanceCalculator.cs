@@ -1,13 +1,16 @@
-﻿namespace FinanceProject.Services;
+﻿using FinanceProject.Models;
+
+namespace FinanceProject.Services;
 
 public class FinanceCalculator
 {
     private readonly FinanceStateService _state;
-    private readonly DateTime _today = DateTime.Today;
+    private readonly DateTime _today;
 
-    public FinanceCalculator(FinanceStateService state)
+    public FinanceCalculator(FinanceStateService state, TimeProvider? timeProvider = null)
     {
         _state = state;
+        _today = (timeProvider ?? TimeProvider.System).GetLocalNow().Date;
     }
 
     // -----------------------------
@@ -58,14 +61,25 @@ public class FinanceCalculator
                 u.Date > _today &&
                 u.Date.Month == _today.Month &&
                 u.Date.Year == _today.Year)
-            .Sum(u => u.Amount);
+            .Sum(GetUncoveredUpcomingCostAmount);
 
     public decimal UpcomingCostsNextMonth =>
         _state.UpcomingCosts
             .Where(u =>
                 u.Date.Month == _today.AddMonths(1).Month &&
                 u.Date.Year == _today.AddMonths(1).Year)
-            .Sum(u => u.Amount);
+            .Sum(GetUncoveredUpcomingCostAmount);
+
+    public decimal GetUncoveredUpcomingCostAmount(UpcomingCost cost)
+    {
+        var pot = cost.SavingsPotId is { } potId && potId != Guid.Empty
+            ? _state.SavingsSubPots.FirstOrDefault(p => p.Id == potId)
+            : null;
+
+        return pot is null
+            ? cost.Amount
+            : Math.Max(0m, cost.Amount - Math.Max(0m, pot.Amount));
+    }
 
     // -----------------------------
     // INCOME & PAYMENTS
@@ -158,7 +172,7 @@ public class FinanceCalculator
             var targetMonth = _today.AddMonths(monthIndex);
             var upcomingCosts = _state.UpcomingCosts
                 .Where(u => u.Date.Year == targetMonth.Year && u.Date.Month == targetMonth.Month)
-                .Sum(u => u.Amount);
+                .Sum(GetUncoveredUpcomingCostAmount);
             var oneOffIncoming = _state.OneOffPayments
                 .Where(p => p.Date.Year == targetMonth.Year && p.Date.Month == targetMonth.Month)
                 .Sum(p => p.Amount);

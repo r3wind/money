@@ -39,15 +39,15 @@ else
                 {
                     <div class="stat-sub" style="margin-top:0.6rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits this month: @Calc.RemainingDirectDebits.ToGBP()<br />
-                        − Pro-rated budget this month (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
-                        − Upcoming costs this month: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        − This month remaining debits: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − This month pro-rated budget (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
+                        − This month remaining upcoming costs: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
                         − @NextMonthName upcoming costs: @Calc.UpcomingCostsNextMonth.ToGBP()<br />
                         − @NextMonthName debits: @Calc.TotalDirectDebits.ToGBP()<br />
-                        − Full monthly budget: @Calc.TotalBudget.ToGBP()<br />
+                        − @NextMonthName full monthly budget: @Calc.TotalBudget.ToGBP()<br />
                         − Credit cards: @Calc.CreditCardBalance.ToGBP()<br />
                         + One-off incoming payments (this + next month): @((Calc.OneOffIncomingThisMonth + Calc.OneOffIncomingNextMonth).ToGBP())<br />
-                        + Unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
+                        + This month unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
                         + Unallocated savings: @Calc.UnallocatedSavings.ToGBP()
                     </div>
                 }
@@ -72,16 +72,16 @@ else
                 {
                     <div class="stat-sub" style="margin-top:0.6rem;">
                         Bank balance: @Finance.BankBalance.ToGBP()<br />
-                        − Remaining debits this month: @Calc.RemainingDirectDebits.ToGBP()<br />
-                        − Pro-rated budget this month (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
-                        − Upcoming costs this month: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
+                        − This month remaining debits: @Calc.RemainingDirectDebits.ToGBP()<br />
+                        − This month pro-rated budget (@_budgetFractionPercent%): @Calc.ProRatedBudget.ToGBP()<br />
+                        − This month remaining upcoming costs: @Calc.UpcomingCostsThisMonth.ToGBP()<br />
                         − @NextMonthName upcoming costs: @Calc.UpcomingCostsNextMonth.ToGBP()<br />
                         − @NextMonthName debits: @Calc.TotalDirectDebits.ToGBP()<br />
-                        − Full monthly budget: @Calc.TotalBudget.ToGBP()<br />
+                        − @NextMonthName full monthly budget: @Calc.TotalBudget.ToGBP()<br />
                         − Credit cards: @Calc.CreditCardBalance.ToGBP()<br />
                         + One-off incoming payments (this + next month): @((Calc.OneOffIncomingThisMonth + Calc.OneOffIncomingNextMonth).ToGBP())<br />
-                        + Unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
-                        + Next month income: @Calc.TotalIncome.ToGBP()<br />
+                        + This month unpaid income: @Calc.UnpaidIncome.ToGBP()<br />
+                        + @NextMonthName income: @Calc.TotalIncome.ToGBP()<br />
                         + Unallocated savings: @Calc.UnallocatedSavings.ToGBP()
                     </div>
                 }

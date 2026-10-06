@@ -7,4 +7,5 @@ public class UpcomingCost
     public decimal Amount { get; set; }
     public DateTime Date { get; set; } = DateTime.Today;
     public string Details { get; set; } = string.Empty;
+    public Guid? SavingsPotId { get; set; }
 }
